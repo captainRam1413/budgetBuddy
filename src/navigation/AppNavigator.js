@@ -29,7 +29,11 @@ export default function AppNavigator(params) {
     return (
         <Stack.Navigator >
             <Stack.Screen name="BottomTabs" component={myTabs} />
-            <Stack.Screen name="Profile" component={Profile} />
+            {/* <Stack.Screen name="Profile" component={Profile} /> */}
+            {/* <Stack.Screen name="Create" component={Create} /> */}
+
+            <Stack.Screen name= "Category" component={require('../screens/Category').default} options={{presentation: 'modal', headerShown: false}} />
+
         </Stack.Navigator>
     );
 }

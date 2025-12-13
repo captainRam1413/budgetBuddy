@@ -5,18 +5,32 @@ import tailwind from 'twrnc'
 
 
 
-const Create = () => {
+const Create = ({navigation, route}) => {
   const [amount, setAmount] = React.useState('');
   const [title, setTitle] = React.useState('');
-
+  const [category, setCategory] = React.useState({});
+ 
+  React.useEffect(() => {
+    if (route.params?.item) {
+      const { item } = route.params;
+      console.log("Selected category:", item);
+      setCategory(route.params?.item);
+    }
+  }, [route.params?.item]);
 
   const handleExpense = () => {
-    if (!amount || !title) {
+    if (!amount || !title || !category.name) {
       console.log("all fields are required");
       Alert.alert("all fields are required");
       return;
     }
-    console.log("Expense added:", { amount, title });
+    console.log("Expense added:", { amount, title, categoryName: category.name });
+    Alert.alert("Expense added: ", `${title} - $${amount} in ${category.name}`);
+  }
+
+  const handleCategoryInput = () => {
+    console.log("Category input pressed");
+    navigation.navigate("Category");
   }
 
   return (
@@ -52,10 +66,13 @@ const Create = () => {
         <View style={tailwind`mb-6`}>
           <Text style={tailwind`text-lg font-semibold text-gray-700 mb-2`}>Category</Text>
 
-          <Pressable style={tailwind`border border-gray-300 p-4 rounded-xl flex-row justify-between items-center`}>
+          <Pressable 
+          onPress={handleCategoryInput}
+          style={tailwind`border border-gray-300 p-4 rounded-xl flex-row justify-between items-center`}>
+            
             <View style={tailwind`flex-row  items-center `}>
-              <Text style={tailwind`text-2xl mr-3 `}>🍔</Text>
-              <Text style={tailwind`text-lg`}>{"food"}</Text>
+              <Text style={tailwind`text-2xl mr-3 `}>{category.icon || '🍔'}</Text>
+              <Text style={tailwind`text-lg`}>{category.name || 'Food'}</Text>
             </View>
             <Text style={tailwind`text-lg`}>&gt;</Text>
           </Pressable>
