@@ -1,4 +1,4 @@
-import { CATEGORY } from "./constant";
+import { DEFAULT_CATEGORIES } from "./constant";
 
 export const getId = () => {
     return Date.now().toString() + Math.floor(Math.random() * 1000).toString();
@@ -9,6 +9,6 @@ export const getDate = () => {
 };
 
 export const getCategoryColor = (color) => {
-    const category = CATEGORY.find(cat => cat.name === color);
+    const category = DEFAULT_CATEGORIES.find(cat => cat.name === color);
     return category ? category.color : '#808000'; // default to black if not found
 }

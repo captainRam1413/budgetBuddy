@@ -1,54 +1,44 @@
 import { StyleSheet, Text, View } from 'react-native'
 import React from 'react'
 import tailwind from 'twrnc'
+import { useTheme } from '../context/ThemeContext'
 
 const ExpenceItemCard = ({ item }) => {
+  const { colors } = useTheme();
     return (
-        // title, icon, amount, date, amt
-        <View style={tailwind`bg-white rounded-2xl p-4 mx-5 shadow-sm mb-3 flex-row justify-between items-centers`}>
-            <View style={tailwind`flex-row items-center`}>
-
-
-                {/* Icon view start*/}
-                <View style={tailwind`w-12 h-12 bg-gray-100 rounded-xl justify-center items-center mr-4`}>
-                    <Text style={tailwind`text-2xl`}>{
-                        item.icon || "🍔"
-                    }</Text>
-                </View>
-                {/* End Icon view */}
-
-
-
-                {/* Title  view */}
-                <View >
-                    <Text style={tailwind`text-base font-semibold text-gray-800`}> {item.title || "Food"} </Text>
-
-                    {/* Category view start */}
-                    <View style={[tailwind`mt-1 px-2 py-1 rounded-lg bg-orange-400  self-start`, {backgroundColor: item.color || "#FF6B6B"}]}>
-                        <Text style={tailwind`text-xs font-bold text-gray-700`}> {item.category || "Food and Drinks"} </Text>
+        <View style={[tailwind`rounded-2xl p-4 shadow-sm mb-3`, { backgroundColor: colors.surface }]}>
+            <View style={tailwind`flex-row justify-between items-center`}>
+                <View style={tailwind`flex-row items-center flex-1`}>
+                    {/* Icon view */}
+                    <View style={[tailwind`w-12 h-12 rounded-xl justify-center items-center mr-4`, { backgroundColor: (item.color || '#FF6B6B') + '20' }]}>
+                        <Text style={tailwind`text-2xl`}>{item.icon || "🍔"}</Text>
                     </View>
-                    {/* Category view end */}
 
+                    {/* Title view */}
+                    <View style={tailwind`flex-1`}>
+                        <Text style={[tailwind`text-base font-semibold`, { color: colors.text }]}>
+                            {item.title || "Food"}
+                        </Text>
+
+                        {/* Category badge */}
+                        <View style={[tailwind`mt-1 px-2 py-1 rounded-lg self-start`, {backgroundColor: (item.color || "#FF6B6B") + '20'}]}>
+                            <Text style={[tailwind`text-xs font-bold`, { color: item.color || '#FF6B6B' }]}>
+                                {item.category || "Food and Drinks"}
+                            </Text>
+                        </View>
+                    </View>
                 </View>
-                {/* End Title view */}
 
-
-                
-
+                {/* Date and amount view */}
+                <View style={tailwind`items-end`}>
+                    <Text style={[tailwind`text-lg font-bold`, { color: colors.text }]}>
+                        ₹{item.amount ? item.amount.toFixed(0) : "20"}
+                    </Text>
+                    <Text style={[tailwind`text-xs mt-1`, { color: colors.textTertiary }]}>
+                        {item.date || "12 Aug, 2023"}
+                    </Text>
+                </View>
             </View>
-
-            {/* Date and amount view start */}
-            <View style={tailwind`items-end`}>
-
-                    <Text style={tailwind`text-base font-bold text-black`}>
-                        ${item.amount || "20.00"}
-                    </Text>
-                    <Text style={tailwind`text-sm text-gray-500 mt-1`}>
-                        {item.date ||"12 Aug, 2023" }
-                    </Text>
-
-                </View>  
-            {/* Date and amount view end */}
         </View>
     )
 }
