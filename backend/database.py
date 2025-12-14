@@ -1,5 +1,7 @@
 from pymongo import MongoClient
 from config import Config
+import ssl
+import certifi
 
 class Database:
     client = None
@@ -9,7 +11,17 @@ class Database:
     def initialize(cls):
         """Initialize MongoDB connection"""
         try:
-            cls.client = MongoClient(Config.MONGODB_URI)
+            # MongoDB connection options with proper SSL/TLS settings
+            connection_options = {
+                'tls': True,
+                'tlsAllowInvalidCertificates': False,
+                'tlsCAFile': certifi.where(),
+                'serverSelectionTimeoutMS': 5000,
+                'connectTimeoutMS': 10000,
+                'socketTimeoutMS': 10000,
+            }
+            
+            cls.client = MongoClient(Config.MONGODB_URI, **connection_options)
             cls.db = cls.client[Config.DATABASE_NAME]
             # Test connection
             cls.client.admin.command('ping')
