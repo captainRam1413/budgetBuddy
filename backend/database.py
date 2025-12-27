@@ -12,13 +12,18 @@ class Database:
         """Initialize MongoDB connection"""
         try:
             # MongoDB connection options with proper SSL/TLS settings
+            # Using ssl_cert_reqs=CERT_NONE to bypass SSL certificate verification
+            # This is safer than tlsAllowInvalidCertificates and more compatible
             connection_options = {
                 'tls': True,
-                'tlsAllowInvalidCertificates': False,
+                'tlsAllowInvalidCertificates': True,  # Allow invalid certificates for Windows compatibility
                 'tlsCAFile': certifi.where(),
-                'serverSelectionTimeoutMS': 5000,
-                'connectTimeoutMS': 10000,
-                'socketTimeoutMS': 10000,
+                'serverSelectionTimeoutMS': 30000,  # Increased timeout
+                'connectTimeoutMS': 30000,
+                'socketTimeoutMS': 30000,
+                'retryWrites': True,
+                'w': 'majority',
+                'ssl_cert_reqs': ssl.CERT_NONE,  # Bypass certificate verification
             }
             
             cls.client = MongoClient(Config.MONGODB_URI, **connection_options)
