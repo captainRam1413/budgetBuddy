@@ -20,7 +20,12 @@ CORS(app)
 @app.before_request
 def init_db():
     if Database.db is None:
-        Database.initialize()
+        success = Database.initialize()
+        if not success:
+            return jsonify({
+                'success': False, 
+                'message': 'Database connection failed. Please check backend logs.'
+            }), 503
 
 # Register blueprints
 app.register_blueprint(auth_bp)

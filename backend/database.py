@@ -11,19 +11,20 @@ class Database:
     def initialize(cls):
         """Initialize MongoDB connection"""
         try:
-            # MongoDB connection options with proper SSL/TLS settings
-            # Using ssl_cert_reqs=CERT_NONE to bypass SSL certificate verification
-            # This is safer than tlsAllowInvalidCertificates and more compatible
+            print("🔄 Attempting to connect to MongoDB...")
+            print(f"MongoDB URI: {Config.MONGODB_URI[:50]}..." if Config.MONGODB_URI else "MongoDB URI is None!")
+            
+            if not Config.MONGODB_URI:
+                print("❌ MongoDB URI is not set. Please check your .env file.")
+                return False
+            
+            # MongoDB connection options
+            # Simplified for Python 3.13 compatibility on Windows
             connection_options = {
-                'tls': True,
-                'tlsAllowInvalidCertificates': True,  # Allow invalid certificates for Windows compatibility
-                'tlsCAFile': certifi.where(),
-                'serverSelectionTimeoutMS': 30000,  # Increased timeout
+                'serverSelectionTimeoutMS': 30000,
                 'connectTimeoutMS': 30000,
                 'socketTimeoutMS': 30000,
                 'retryWrites': True,
-                'w': 'majority',
-                'ssl_cert_reqs': ssl.CERT_NONE,  # Bypass certificate verification
             }
             
             cls.client = MongoClient(Config.MONGODB_URI, **connection_options)
@@ -34,13 +35,17 @@ class Database:
             return True
         except Exception as e:
             print(f"❌ Failed to connect to MongoDB: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
 
     @classmethod
     def get_collection(cls, collection_name):
         """Get a collection from the database"""
         if cls.db is None:
-            cls.initialize()
+            success = cls.initialize()
+            if not success or cls.db is None:
+                raise Exception("Database connection not established. Please check your MongoDB URI and connection.")
         return cls.db[collection_name]
 
 # Collection names
