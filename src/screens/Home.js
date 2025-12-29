@@ -136,8 +136,8 @@ const Home = ({ navigation, route }) => {
     // Build transaction note - ensure single line, no newlines, keep it short
     const transactionNote = `${category.name} - ${title}`.replace(/\n/g, ' ').trim();
     
-    // Format amount - use integer if it's a whole number, otherwise 2 decimals
-    const formattedAmount = paymentAmount % 1 === 0 ? paymentAmount.toString() : paymentAmount.toFixed(2);
+    // Format amount - must be a decimal string with 2 decimal places for UPI
+    const formattedAmount = paymentAmount.toFixed(2);
 
     console.log('=== UPI Payment ===');
     console.log('UPI ID:', merchantUpiId);
@@ -146,70 +146,75 @@ const Home = ({ navigation, route }) => {
     console.log('Transaction Ref:', transactionRef);
     console.log('Transaction Note:', transactionNote);
     
-    // Build UPI URL - keep it simple and clean
-    // Using minimal required parameters to avoid UPI app rejection
-    const finalUpiUrl = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(payeeName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(transactionNote)}`;
+    // Build UPI URL using correct parameter format
+    // pa = payee address (UPI ID)
+    // pn = payee name
+    // am = amount (must be decimal with 2 places)
+    // cu = currency (INR)
+    // tn = transaction note
+    // tr = transaction reference (optional)
+    const finalUpiUrl = `upi://pay?pa=${encodeURIComponent(merchantUpiId)}&pn=${encodeURIComponent(payeeName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(transactionNote)}&tr=${transactionRef}`;
     
     console.log('UPI URL:', finalUpiUrl);
     
     try {
-      const canOpen = await Linking.canOpenURL(finalUpiUrl);
-      if (canOpen) {
-        await Linking.openURL(finalUpiUrl);
-        
-        // After opening UPI app, ask user if payment was successful
-        setTimeout(() => {
-          Alert.alert(
-            "Payment Status",
-            "Did you complete the payment? Do you want to save this expense?",
-            [
-              { text: "No", style: "cancel" },
-              { 
-                text: "Yes", 
-                onPress: async () => {
-                  setPaymentLoading(true);
-                  try {
-                    const expenseAmount = parseFloat(amount);
-                    
-                    // Save to backend database
-                    const result = await expenseAPI.create(
-                      title,
-                      expenseAmount,
-                      category.name,
-                      category.icon,
-                      category.color
-                    );
+      // Directly open UPI URL without checking - more reliable on Android 11+
+      await Linking.openURL(finalUpiUrl);
+      
+      // After opening UPI app, ask user if payment was successful
+      setTimeout(() => {
+        Alert.alert(
+          "Payment Status",
+          "Did you complete the payment? Do you want to save this expense?",
+          [
+            { text: "No", style: "cancel" },
+            { 
+              text: "Yes", 
+              onPress: async () => {
+                setPaymentLoading(true);
+                try {
+                  const expenseAmount = parseFloat(amount);
+                  
+                  // Save to backend database
+                  const result = await expenseAPI.create(
+                    title,
+                    expenseAmount,
+                    category.name,
+                    category.icon,
+                    category.color
+                  );
 
-                    if (result.success) {
-                      // Also update local context for immediate UI update
-                      addExpense({ amount, title, category });
-                      Alert.alert("Success!", "Payment completed and expense tracked");
-                      setAmount('');
-                      setTitle('');
-                      setCategory({});
-                      setUpiId('');
-                      setFullQrData('');
-                      setShowPaymentModal(false);
-                    } else {
-                      Alert.alert("Error", result.message || "Failed to save expense to database");
-                    }
-                  } catch (error) {
-                    console.error('Save expense error:', error);
-                    Alert.alert("Error", "Failed to save expense to database");
-                  } finally {
-                    setPaymentLoading(false);
+                  if (result.success) {
+                    // Also update local context for immediate UI update
+                    addExpense({ amount, title, category });
+                    Alert.alert("Success!", "Payment completed and expense tracked");
+                    setAmount('');
+                    setTitle('');
+                    setCategory({});
+                    setUpiId('');
+                    setFullQrData('');
+                    setShowPaymentModal(false);
+                  } else {
+                    Alert.alert("Error", result.message || "Failed to save expense to database");
                   }
+                } catch (error) {
+                  console.error('Save expense error:', error);
+                  Alert.alert("Error", "Failed to save expense to database");
+                } finally {
+                  setPaymentLoading(false);
                 }
               }
-            ]
-          );
-        }, 2000);
-      } else {
-        Alert.alert("Error", "No UPI app found. Please install a UPI app like GPay or PhonePe.");
-      }
+            }
+          ]
+        );
+      }, 2000);
     } catch (error) {
       console.error('UPI Error:', error);
-      Alert.alert("Error", "Could not open UPI app");
+      Alert.alert(
+        "UPI App Not Found", 
+        "Please install a UPI payment app (Google Pay, PhonePe, Paytm, etc.) to make payments.",
+        [{ text: "OK" }]
+      );
     }
   };
 
