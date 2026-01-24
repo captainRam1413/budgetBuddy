@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, TextInput, Pressable, SafeAreaView, KeyboardAvo
 import React, { useState } from 'react';
 import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
-import { authAPI } from '../services/api';
+import { authAPI } from '../services/appwriteAPI';
 
 const Register = ({ navigation }) => {
   const { colors } = useTheme();

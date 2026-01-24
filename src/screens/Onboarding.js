@@ -4,7 +4,7 @@ import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
 import { AVAILABLE_ICONS, AVAILABLE_COLORS } from '../constant';
-import { userAPI, categoryAPI } from '../services/api';
+import { userAPI, categoryAPI } from '../services/appwriteAPI';
 
 const Onboarding = ({ navigation, route }) => {
   const { colors } = useTheme();

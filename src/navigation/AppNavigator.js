@@ -12,7 +12,7 @@ import Register from '../screens/Register';
 import Onboarding from '../screens/Onboarding';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
-import { authAPI } from '../services/api';
+import { authAPI } from '../services/appwriteAPI';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();

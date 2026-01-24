@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Base URL for the backend API
-const API_BASE_URL = 'https://budgetbuddybackend-vepy.onrender.com/api';
+const API_BASE_URL = 'http://192.168.1.46:5000/api';
 
 // Create axios instance
 const api = axios.create({

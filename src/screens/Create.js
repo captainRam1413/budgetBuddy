@@ -4,7 +4,8 @@ import tailwind from 'twrnc'
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
 import QRScanner from '../components/QRScanner'
-import { expenseAPI } from '../services/api'
+import { expenseAPI } from '../services/appwriteAPI'
+import { initiateQrPayment, initiateManualPayment, showPaymentConfirmation } from '../services/paymentService'
 
 const Create = ({navigation, route}) => {
   const [amount, setAmount] = React.useState('');
@@ -58,137 +59,81 @@ const Create = ({navigation, route}) => {
       return;
     }
 
-    // Validate amount
-    const paymentAmount = parseFloat(amount);
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
-      Alert.alert("Error", "Please enter a valid amount");
-      return;
-    }
-
-    // Check minimum amount (most merchants require at least ₹1)
-    if (paymentAmount < 1) {
-      Alert.alert("Error", "Amount must be at least ₹1");
-      return;
-    }
-
     setShowPaymentModal(false);
 
-    // Use fullQrData if available (from scan), otherwise use manually entered qrCode
+    const paymentAmount = parseFloat(amount);
     const qrDataToUse = fullQrData || qrCode;
-    const trimmedData = qrDataToUse.trim();
-    
-    // Parse UPI QR code to extract all parameters
-    let upiId = '';
-    let payeeName = 'UPI Receiver'; // Default fallback if QR doesn't have pn
-    
-    if (trimmedData.startsWith('upi://pay')) {
-      // Parse the UPI URL query parameters
-      const urlParts = trimmedData.split('?');
-      if (urlParts.length > 1) {
-        const params = new URLSearchParams(urlParts[1]);
-        
-        // Extract pa (payee UPI ID)
-        if (params.get('pa')) {
-          upiId = params.get('pa');
-        }
-        
-        // Extract pn (payee name) - ALWAYS from QR, never hardcode
-        if (params.get('pn')) {
-          const extractedName = params.get('pn');
-          // Only use extracted name if it's not null/undefined/empty
-          if (extractedName && extractedName !== 'null' && extractedName.trim() !== '') {
-            payeeName = extractedName;
+
+    // Determine if this is QR payment or manual payment
+    const isQrPayment = qrDataToUse.startsWith('upi://pay');
+
+    const handlePaymentSuccess = () => {
+      showPaymentConfirmation(
+        async () => {
+          // User confirmed payment - save expense
+          setLoading(true);
+          try {
+            const result = await expenseAPI.create(
+              title,
+              paymentAmount,
+              category.name,
+              category.icon,
+              category.color
+            );
+
+            if (result.success) {
+              addExpense({ amount, title, category });
+              Alert.alert("Saved!", "Expense tracked successfully");
+              setAmount('');
+              setTitle('');
+              setQrCode('');
+              setFullQrData('');
+              navigation.goBack();
+            } else {
+              Alert.alert("Error", result.message || "Failed to save expense");
+            }
+          } catch (error) {
+            console.error('Save expense error:', error);
+            Alert.alert("Error", "Failed to save expense to database");
+          } finally {
+            setLoading(false);
           }
+        },
+        () => {
+          // User cancelled - do nothing
+          console.log('User cancelled saving expense');
         }
-      }
-    } else if (trimmedData.includes('@')) {
-      // Manual UPI ID entry
-      upiId = trimmedData;
-      payeeName = 'UPI Receiver'; // No QR, so use fallback
+      );
+    };
+
+    const handlePaymentError = (error) => {
+      Alert.alert("Payment Error", error.message || "Failed to initiate payment");
+    };
+
+    if (isQrPayment) {
+      // QR Payment
+      await initiateQrPayment(
+        {
+          qrData: qrDataToUse,
+          amount: paymentAmount,
+          title,
+          category: category.name,
+        },
+        handlePaymentSuccess,
+        handlePaymentError
+      );
     } else {
-      Alert.alert("Error", "Invalid UPI ID format");
-      return;
-    }
-
-    // Generate unique transaction reference
-    const transactionRef = `TXN${Date.now()}`;
-    
-    // Build transaction note - ensure single line, no newlines, keep it short
-    const transactionNote = `${category.name} - ${title}`.replace(/\n/g, ' ').trim();
-    
-    // Format amount - use integer if it's a whole number, otherwise 2 decimals
-    const formattedAmount = paymentAmount % 1 === 0 ? paymentAmount.toString() : paymentAmount.toFixed(2);
-
-    console.log('=== UPI Payment ===');
-    console.log('UPI ID:', upiId);
-    console.log('Payee Name:', payeeName);
-    console.log('Amount:', formattedAmount);
-    console.log('Transaction Ref:', transactionRef);
-    console.log('Transaction Note:', transactionNote);
-    
-    // Build UPI URL - keep it simple and clean
-    // Using minimal required parameters to avoid UPI app rejection
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(transactionNote)}`;
-    
-    console.log('UPI URL:', upiUrl);
-    
-    try {
-      const canOpen = await Linking.canOpenURL(upiUrl);
-      if (canOpen) {
-        await Linking.openURL(upiUrl);
-        
-        // After opening UPI app, ask user if they want to save
-        setTimeout(() => {
-          Alert.alert(
-            "Save Expense?",
-            "Did you complete the payment? Do you want to save this expense?",
-            [
-              { text: "No", style: "cancel" },
-              { 
-                text: "Yes, Save", 
-                onPress: async () => {
-                  setLoading(true);
-                  try {
-                    const expenseAmount = parseFloat(amount);
-                    
-                    // Save to backend
-                    const result = await expenseAPI.create(
-                      title,
-                      expenseAmount,
-                      category.name,
-                      category.icon,
-                      category.color
-                    );
-
-                    if (result.success) {
-                      // Also update local context for immediate UI update
-                      addExpense({ amount, title, category });
-                      Alert.alert("Saved!", "Expense tracked successfully");
-                      setAmount('');
-                      setTitle('');
-                      setQrCode('');
-                      setFullQrData('');
-                      navigation.goBack();
-                    } else {
-                      Alert.alert("Error", result.message || "Failed to save expense");
-                    }
-                  } catch (error) {
-                    console.error('Save expense error:', error);
-                    Alert.alert("Error", "Failed to save expense to database");
-                  } finally {
-                    setLoading(false);
-                  }
-                }
-              }
-            ]
-          );
-        }, 2000);
-      } else {
-        Alert.alert("Error", "No UPI app found. Please install a UPI app like GPay or PhonePe.");
-      }
-    } catch (error) {
-      console.error('UPI Error:', error);
-      Alert.alert("Error", "Could not open UPI app");
+      // Manual UPI ID Payment
+      await initiateManualPayment(
+        {
+          upiId: qrDataToUse,
+          amount: paymentAmount,
+          title,
+          category: category.name,
+        },
+        handlePaymentSuccess,
+        handlePaymentError
+      );
     }
   };
 

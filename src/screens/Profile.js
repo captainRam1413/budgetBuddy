@@ -4,7 +4,7 @@ import tailwind from 'twrnc'
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
 import { AVAILABLE_ICONS, AVAILABLE_COLORS } from '../constant'
-import { authAPI } from '../services/api'
+import { authAPI } from '../services/appwriteAPI'
 
 const Profile = ({ navigation }) => {
   const { 

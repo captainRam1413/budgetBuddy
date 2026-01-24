@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
-import { authAPI } from '../services/api';
+import { authAPI } from '../services/appwriteAPI';
 
 const Login = ({ navigation }) => {
   const { colors } = useTheme();

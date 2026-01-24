@@ -1,6 +1,6 @@
 import { getCategoryColor, getDate, getId } from "../helper";
 import { DEFAULT_CATEGORIES } from "../constant";
-import { userAPI, categoryAPI, expenseAPI } from "../services/api";
+import { userAPI, categoryAPI, expenseAPI } from "../services/appwriteAPI";
 
 const { createContext, useContext, useState } = require("react");
 
