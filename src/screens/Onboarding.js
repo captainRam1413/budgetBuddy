@@ -136,11 +136,23 @@ const Onboarding = ({ navigation, route }) => {
       }
       completeOnboarding();
 
-      Alert.alert(
-        'Welcome to BudgetBuddy! 🎉',
-        'Your budget has been set up successfully',
-        [{ text: 'Get Started', onPress: () => navigation.replace('BottomTabs') }]
-      );
+      // Give a small delay to allow state to update, then navigate
+      setTimeout(() => {
+        Alert.alert(
+          'Welcome to BudgetBuddy! 🎉',
+          'Your budget has been set up successfully',
+          [{ 
+            text: 'Get Started', 
+            onPress: () => {
+              // Reset navigation stack to BottomTabs
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'BottomTabs' }],
+              });
+            }
+          }]
+        );
+      }, 300);
     } catch (error) {
       console.error('Onboarding error:', error);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');

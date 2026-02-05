@@ -15,7 +15,10 @@ const Category = ({navigation, route}) => {
     const [selectedColor, setSelectedColor] = React.useState('#FFB347');
 
     const categories = getAllCategories() || [];
-    const fromScreen = route.params?.fromScreen || 'Create'; // Default to Create for backward compatibility
+    const fromScreen = route.params?.fromScreen || 'Create';
+    const expenseData = route.params?.expense;
+    const preservedAmount = route.params?.preservedAmount;
+    const preservedTitle = route.params?.preservedTitle;
 
     const renderItem = ({item}) => {
         const budget = categoryBudgets[item.name] || 0;
@@ -66,10 +69,23 @@ const Category = ({navigation, route}) => {
     };
 
     const handleSelectedCategory = (item) => {
-        navigation.popTo("BottomTabs",{
-            screen: fromScreen,
-            params: {item}
-        });
+        if (fromScreen === 'ExpenseDetails') {
+            navigation.navigate('ExpenseDetails', { item });
+        } else {
+            // Pass back the selected category along with preserved data
+            navigation.navigate({
+                name: 'BottomTabs',
+                params: {
+                    screen: fromScreen,
+                    params: { 
+                        item,
+                        preservedAmount,
+                        preservedTitle
+                    }
+                },
+                merge: true
+            });
+        }
     }
 
     const handleAddCategory = () => {

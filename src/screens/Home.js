@@ -15,6 +15,8 @@ const Home = ({ navigation, route }) => {
     expenses, 
     totalBudget, 
     getTotalSpending,
+    budgetPeriod,
+    getExpensesForCurrentPeriod,
     addExpense,
     userData,
     loadUserData,
@@ -22,7 +24,8 @@ const Home = ({ navigation, route }) => {
   } = useExpense();
   
   const { colors } = useTheme();
-  const totalSpent = getTotalSpending();
+  const periodExpenses = getExpensesForCurrentPeriod();
+  const totalSpent = getTotalSpending(true); // Use current period
   const budgetRemaining = totalBudget - totalSpent;
   const budgetPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
@@ -178,7 +181,9 @@ const Home = ({ navigation, route }) => {
       {totalBudget > 0 ? (
         <View style={[tailwind`mx-5 my-3 p-6 rounded-3xl shadow-lg`, { backgroundColor: colors.surface }]}>
           <View style={tailwind`flex-row justify-between items-center mb-3`}>
-            <Text style={[tailwind`text-sm font-semibold`, { color: colors.textSecondary }]}>💰 Monthly Budget</Text>
+            <Text style={[tailwind`text-sm font-semibold`, { color: colors.textSecondary }]}>
+              💰 {budgetPeriod === 'weekly' ? 'Weekly' : 'Monthly'} Budget
+            </Text>
             <View style={[tailwind`px-3 py-1 rounded-full`, { backgroundColor: budgetRemaining < 0 ? colors.error + '20' : colors.success + '20' }]}>
               <Text style={[tailwind`text-xs font-bold`, { color: budgetRemaining < 0 ? colors.error : colors.success }]}>
                 {budgetRemaining < 0 ? '⚠️ Over Budget' : '✓ On Track'}
@@ -215,9 +220,11 @@ const Home = ({ navigation, route }) => {
               </Text>
             </View>
             <View style={tailwind`items-end`}>
-              <Text style={[tailwind`text-xs`, { color: colors.textTertiary }]}>Total Expenses</Text>
+              <Text style={[tailwind`text-xs`, { color: colors.textTertiary }]}>
+                {budgetPeriod === 'weekly' ? 'This Week' : 'This Month'}
+              </Text>
               <Text style={[tailwind`text-lg font-bold`, { color: colors.text }]}>
-                {expenses.length}
+                {periodExpenses.length} expenses
               </Text>
             </View>
           </View>
@@ -255,11 +262,18 @@ const Home = ({ navigation, route }) => {
 
       {/* Expenses List */}
       <View style={tailwind`px-5 mb-3`}>
-        <Text style={[tailwind`text-xl font-bold`, { color: colors.text }]}>📋 Recent Expenses</Text>
+        <View style={tailwind`flex-row justify-between items-center`}>
+          <Text style={[tailwind`text-xl font-bold`, { color: colors.text }]}>
+            📋 {budgetPeriod === 'weekly' ? 'This Week' : 'This Month'}
+          </Text>
+          <Text style={[tailwind`text-sm`, { color: colors.textSecondary }]}>
+            {periodExpenses.length} expenses
+          </Text>
+        </View>
       </View>
 
       <FlatList
-        data={expenses}
+        data={periodExpenses}
         renderItem={({ item }) => <ExpenceItemCard item={item} />}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 20 }}

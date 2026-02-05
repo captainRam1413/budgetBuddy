@@ -88,29 +88,51 @@ function MyTabs() {
 
 export default function AppNavigator(params) {
     const { colors } = useTheme();
-    const { loadUserData } = useExpense();
+    const { loadUserData, hasCompletedOnboarding } = useExpense();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [hasLoadedData, setHasLoadedData] = useState(false);
 
     useEffect(() => {
         checkAuth();
+        
+        // Set up interval to check authentication status periodically
+        const authCheckInterval = setInterval(() => {
+            checkAuth();
+        }, 2000); // Check every 2 seconds
+        
+        return () => clearInterval(authCheckInterval);
     }, []);
 
     const checkAuth = async () => {
         try {
             const authenticated = await authAPI.isAuthenticated();
-            setIsAuthenticated(authenticated);
             
-            // If authenticated, load user data from backend
-            if (authenticated) {
-                console.log('🔄 Loading user data from backend...');
-                await loadUserData();
+            if (authenticated !== isAuthenticated) {
+                setIsAuthenticated(authenticated);
+                
+                // Load user data only when authentication state changes to true
+                if (authenticated && !hasLoadedData) {
+                    console.log('🔄 Loading user data from backend...');
+                    await loadUserData();
+                    setHasLoadedData(true);
+                }
+                
+                // Reset loaded flag when user logs out
+                if (!authenticated && hasLoadedData) {
+                    setHasLoadedData(false);
+                }
             }
         } catch (error) {
             console.error('Auth check error:', error);
-            setIsAuthenticated(false);
+            if (isAuthenticated !== false) {
+                setIsAuthenticated(false);
+            }
+            setHasLoadedData(false);
         } finally {
-            setLoading(false);
+            if (loading) {
+                setLoading(false);
+            }
         }
     };
 
@@ -122,6 +144,13 @@ export default function AppNavigator(params) {
             </View>
         );
     }
+
+    // Determine which screen should be the initial route
+    const getInitialRouteName = () => {
+        if (!isAuthenticated) return 'Login';
+        if (!hasCompletedOnboarding) return 'Onboarding';
+        return 'BottomTabs';
+    };
     
     return (
         <Stack.Navigator 
@@ -136,8 +165,7 @@ export default function AppNavigator(params) {
                 },
             }}
         >
-            {!isAuthenticated ? (
-                // Auth Screens
+            {(!isAuthenticated || !hasCompletedOnboarding) && (
                 <>
                     <Stack.Screen 
                         name="Login" 
@@ -155,23 +183,35 @@ export default function AppNavigator(params) {
                         options={{ headerShown: false }} 
                     />
                 </>
-            ) : null}
+            )}
             
-            {/* Main App Screens */}
-            <Stack.Screen 
-                name="BottomTabs" 
-                component={MyTabs} 
-                options={{ 
-                    title: 'BudgetBuddy 💰',
-                    headerShown: true 
-                }} 
-            />
+            {(isAuthenticated && hasCompletedOnboarding) && (
+                <>
+                    <Stack.Screen 
+                        name="BottomTabs" 
+                        component={MyTabs} 
+                        options={{ 
+                            title: 'BudgetBuddy 💰',
+                            headerShown: true 
+                        }} 
+                    />
 
-            <Stack.Screen 
-                name="Category" 
-                component={require('../screens/Category').default} 
-                options={{presentation: 'modal', headerShown: false}} 
-            />
+                    <Stack.Screen 
+                        name="Category" 
+                        component={require('../screens/Category').default} 
+                        options={{presentation: 'modal', headerShown: false}} 
+                    />
+
+                    <Stack.Screen 
+                        name="ExpenseDetails" 
+                        component={require('../screens/ExpenseDetails').default} 
+                        options={{
+                            title: 'Expense Details',
+                            headerShown: true
+                        }} 
+                    />
+                </>
+            )}
         </Stack.Navigator>
     );
 }

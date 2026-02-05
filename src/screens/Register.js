@@ -12,6 +12,13 @@ const Register = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  const emailRef = React.useRef();
+  const phoneRef = React.useRef();
+  const passwordRef = React.useRef();
+  const confirmPasswordRef = React.useRef();
 
   const handleRegister = async () => {
     // Validation
@@ -67,10 +74,13 @@ const Register = ({ navigation }) => {
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={tailwind`flex-1`}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView 
-          contentContainerStyle={tailwind`px-6 py-8`}
+          contentContainerStyle={tailwind`px-6 py-8 pb-24`}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
         >
           {/* Logo/Header */}
           <View style={tailwind`items-center pt-8 pb-10`}>
@@ -89,6 +99,9 @@ const Register = ({ navigation }) => {
               placeholderTextColor={colors.placeholder}
               value={name}
               onChangeText={setName}
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
+              blurOnSubmit={false}
               style={[tailwind`p-4 rounded-2xl text-base shadow-sm`, {
                 backgroundColor: colors.input,
                 borderWidth: 1,
@@ -102,12 +115,16 @@ const Register = ({ navigation }) => {
           <View style={tailwind`mb-4`}>
             <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📧 Email Address</Text>
             <TextInput
+              ref={emailRef}
               placeholder="your@email.com"
               placeholderTextColor={colors.placeholder}
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
+              returnKeyType="next"
+              onSubmitEditing={() => phoneRef.current?.focus()}
+              blurOnSubmit={false}
               style={[tailwind`p-4 rounded-2xl text-base shadow-sm`, {
                 backgroundColor: colors.input,
                 borderWidth: 1,
@@ -121,11 +138,15 @@ const Register = ({ navigation }) => {
           <View style={tailwind`mb-4`}>
             <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📱 Phone Number</Text>
             <TextInput
+              ref={phoneRef}
               placeholder="+91 98765 43210"
               placeholderTextColor={colors.placeholder}
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              blurOnSubmit={false}
               style={[tailwind`p-4 rounded-2xl text-base shadow-sm`, {
                 backgroundColor: colors.input,
                 borderWidth: 1,
@@ -138,49 +159,94 @@ const Register = ({ navigation }) => {
           {/* Password Input */}
           <View style={tailwind`mb-4`}>
             <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>🔒 Password</Text>
-            <TextInput
-              placeholder="Create a strong password"
-              placeholderTextColor={colors.placeholder}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              style={[tailwind`p-4 rounded-2xl text-base shadow-sm`, {
-                backgroundColor: colors.input,
-                borderWidth: 1,
-                borderColor: colors.border,
-                color: colors.text
-              }]}
-            />
+            <View style={tailwind`relative`}>
+              <TextInput
+                ref={passwordRef}
+                placeholder="Create a strong password"
+                placeholderTextColor={colors.placeholder}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                returnKeyType="next"
+                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                blurOnSubmit={false}
+                style={[tailwind`p-4 pr-12 rounded-2xl text-base shadow-sm`, {
+                  backgroundColor: colors.input,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  color: colors.text
+                }]}
+              />
+              <Pressable 
+                onPress={() => setShowPassword(!showPassword)}
+                style={tailwind`absolute right-4 top-4`}
+              >
+                <Text style={tailwind`text-xl`}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+              </Pressable>
+            </View>
+            {password.length > 0 && password.length < 6 && (
+              <Text style={[tailwind`text-xs mt-1`, { color: colors.error || '#ef4444' }]}>Password must be at least 6 characters</Text>
+            )}
           </View>
 
           {/* Confirm Password Input */}
           <View style={tailwind`mb-6`}>
             <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>🔐 Confirm Password</Text>
-            <TextInput
-              placeholder="Re-enter your password"
-              placeholderTextColor={colors.placeholder}
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              style={[tailwind`p-4 rounded-2xl text-base shadow-sm`, {
-                backgroundColor: colors.input,
-                borderWidth: 1,
-                borderColor: colors.border,
-                color: colors.text
-              }]}
-            />
+            <View style={tailwind`relative`}>
+              <TextInput
+                ref={confirmPasswordRef}
+                placeholder="Re-enter your password"
+                placeholderTextColor={colors.placeholder}
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                returnKeyType="done"
+                onSubmitEditing={handleRegister}
+                style={[tailwind`p-4 pr-12 rounded-2xl text-base shadow-sm`, {
+                  backgroundColor: colors.input,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  color: colors.text
+                }]}
+              />
+              <Pressable 
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={tailwind`absolute right-4 top-4`}
+              >
+                <Text style={tailwind`text-xl`}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+              </Pressable>
+            </View>
+            {confirmPassword.length > 0 && password !== confirmPassword && (
+              <Text style={[tailwind`text-xs mt-1`, { color: colors.error || '#ef4444' }]}>Passwords do not match</Text>
+            )}
+            {confirmPassword.length > 0 && password === confirmPassword && (
+              <Text style={[tailwind`text-xs mt-1`, { color: colors.success || '#10b981' }]}>✓ Passwords match</Text>
+            )}
           </View>
 
           {/* Register Button */}
           <Pressable
             onPress={handleRegister}
-            disabled={loading}
-            style={[tailwind`py-5 rounded-2xl mb-4 shadow-lg`, { backgroundColor: colors.success, opacity: loading ? 0.7 : 1 }]}
+            disabled={loading || !name || !email || !phone || !password || !confirmPassword || password !== confirmPassword}
+            style={({ pressed }) => [
+              tailwind`py-5 rounded-2xl mb-4 shadow-lg`, 
+              { 
+                backgroundColor: (loading || !name || !email || !phone || !password || !confirmPassword || password !== confirmPassword) 
+                  ? colors.border 
+                  : colors.success,
+                opacity: pressed ? 0.8 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }]
+              }
+            ]}
           >
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={tailwind`text-white text-center font-bold text-lg`}>Create Account</Text>
+              <Text style={[tailwind`text-center font-bold text-lg`, { 
+                color: (loading || !name || !email || !phone || !password || !confirmPassword || password !== confirmPassword) 
+                  ? colors.textSecondary 
+                  : 'white' 
+              }]}>Create Account</Text>
             )}
           </Pressable>
 

@@ -14,6 +14,8 @@ export function ExpenseProvider({ children }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [userData, setUserData] = useState({ name: '', email: '', phone: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [budgetPeriod, setBudgetPeriod] = useState('monthly'); // 'weekly' or 'monthly'
+  const [periodStartDate, setPeriodStartDate] = useState(new Date().toISOString());
 
   // Load all user data from backend
   const loadUserData = async () => {
@@ -30,6 +32,8 @@ export function ExpenseProvider({ children }) {
         });
         setTotalBudget(user.totalBudget || 0);
         setHasCompletedOnboarding(user.hasCompletedOnboarding || false);
+        setBudgetPeriod(user.budgetPeriod || 'monthly');
+        setPeriodStartDate(user.periodStartDate || new Date().toISOString());
       }
 
       // 2. Load categories
@@ -83,6 +87,8 @@ export function ExpenseProvider({ children }) {
     setCustomCategories([]);
     setHasCompletedOnboarding(false);
     setUserData({ name: '', email: '', phone: '' });
+    setBudgetPeriod('monthly');
+    setPeriodStartDate(new Date().toISOString());
   };
   
   // Add expense
@@ -98,6 +104,15 @@ export function ExpenseProvider({ children }) {
     };
 
     setExpenses([...expenses, newExpense]);
+  };
+
+  // Update expense
+  const updateExpense = (expenseId, updatedData) => {
+    setExpenses(expenses.map(expense => 
+      expense.id === expenseId 
+        ? { ...expense, ...updatedData }
+        : expense
+    ));
   };
 
   // Delete expense
@@ -129,6 +144,43 @@ export function ExpenseProvider({ children }) {
     return { success: true, count: validCategories.length };
   };
 
+  // Delete category
+  const deleteCategory = async (categoryName) => {
+    try {
+      // Check if category has expenses
+      const categoryExpenses = expenses.filter(exp => exp.category === categoryName);
+      
+      if (categoryExpenses.length > 0) {
+        return {
+          success: false,
+          hasExpenses: true,
+          expenseCount: categoryExpenses.length,
+          message: `Cannot delete category. ${categoryExpenses.length} expense(s) are using this category.`
+        };
+      }
+
+      // Delete from backend
+      const result = await categoryAPI.delete(categoryName);
+      
+      if (result.success) {
+        // Remove from local state
+        setCustomCategories(customCategories.filter(cat => cat.name !== categoryName));
+        
+        // Remove category budget
+        const newBudgets = { ...categoryBudgets };
+        delete newBudgets[categoryName];
+        setCategoryBudgets(newBudgets);
+        
+        return { success: true, message: 'Category deleted successfully' };
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Delete category error:', error);
+      return { success: false, message: 'Failed to delete category' };
+    }
+  };
+
   // Set user data
   const setUser = (user) => {
     setUserData(user);
@@ -150,11 +202,21 @@ export function ExpenseProvider({ children }) {
   };
 
   // Set budget for a specific category
-  const setCategoryBudget = (categoryName, amount) => {
+  const setCategoryBudget = async (categoryName, amount) => {
+    const budgetAmount = parseFloat(amount) || 0;
+    
+    // Update local state immediately
     setCategoryBudgets(prev => ({
       ...prev,
-      [categoryName]: parseFloat(amount) || 0
+      [categoryName]: budgetAmount
     }));
+    
+    // Sync with backend
+    try {
+      await categoryAPI.updateBudget(categoryName, budgetAmount);
+    } catch (error) {
+      console.error('Failed to update category budget in backend:', error);
+    }
   };
 
   // Set multiple category budgets at once (for onboarding)
@@ -170,16 +232,64 @@ export function ExpenseProvider({ children }) {
     setTotalBudget(parseFloat(amount) || 0);
   };
 
-  // Get spending by category
-  const getCategorySpending = (categoryName) => {
-    return expenses
+  // Set budget period
+  const updateBudgetPeriod = async (period) => {
+    setBudgetPeriod(period);
+    // Reset period start date when changing period
+    const newStartDate = new Date().toISOString();
+    setPeriodStartDate(newStartDate);
+    
+    // Save to backend
+    try {
+      await userAPI.updateBudgetPeriod(period, newStartDate);
+      console.log('✅ Budget period saved to backend');
+    } catch (error) {
+      console.error('❌ Failed to save budget period:', error);
+    }
+  };
+
+  // Get period start date based on budget period
+  const getPeriodStartDate = () => {
+    const now = new Date();
+    const start = new Date(periodStartDate);
+    
+    if (budgetPeriod === 'weekly') {
+      // Get start of current week (Monday)
+      const dayOfWeek = now.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() + diff);
+      weekStart.setHours(0, 0, 0, 0);
+      return weekStart;
+    } else {
+      // Get start of current month
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      monthStart.setHours(0, 0, 0, 0);
+      return monthStart;
+    }
+  };
+
+  // Filter expenses by current period
+  const getExpensesForCurrentPeriod = () => {
+    const periodStart = getPeriodStartDate();
+    return expenses.filter(exp => {
+      const expenseDate = new Date(exp.date);
+      return expenseDate >= periodStart;
+    });
+  };
+
+  // Get spending by category for current period
+  const getCategorySpending = (categoryName, useCurrentPeriod = false) => {
+    const expensesToUse = useCurrentPeriod ? getExpensesForCurrentPeriod() : expenses;
+    return expensesToUse
       .filter(exp => exp.category === categoryName)
       .reduce((sum, exp) => sum + exp.amount, 0);
   };
 
   // Get total spending
-  const getTotalSpending = () => {
-    return expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const getTotalSpending = (useCurrentPeriod = false) => {
+    const expensesToUse = useCurrentPeriod ? getExpensesForCurrentPeriod() : expenses;
+    return expensesToUse.reduce((sum, exp) => sum + exp.amount, 0);
   };
 
   // Get budget status for a category
@@ -202,9 +312,14 @@ export function ExpenseProvider({ children }) {
     <ExpenseContext.Provider value={{ 
       expenses, 
       addExpense,
+      updateExpense,
       deleteExpense,
       totalBudget,
       setBudget,
+      budgetPeriod,
+      updateBudgetPeriod,
+      getPeriodStartDate,
+      getExpensesForCurrentPeriod,
       categoryBudgets,
       setCategoryBudget,
       setBatchCategoryBudgets,
@@ -214,6 +329,7 @@ export function ExpenseProvider({ children }) {
       customCategories,
       addCustomCategory,
       addMultipleCategories,
+      deleteCategory,
       getAllCategories,
       completeOnboarding,
       hasCompletedOnboarding,

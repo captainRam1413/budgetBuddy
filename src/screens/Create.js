@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View, TextInput, Pressable, Alert, Modal, SafeAreaView, ActivityIndicator, Linking } from 'react-native'
+import { ScrollView, StyleSheet, Text, View, TextInput, Pressable, Alert, Modal, SafeAreaView, ActivityIndicator, Linking, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native'
 import React from 'react'
 import tailwind from 'twrnc'
 import { useExpense } from '../context/ExpenseContext'
@@ -21,11 +21,18 @@ const Create = ({navigation, route}) => {
  
   React.useEffect(() => {
     if (route.params?.item) {
-      const { item } = route.params;
+      const { item, preservedAmount, preservedTitle } = route.params;
       console.log("Selected category:", item);
-      setCategory(route.params?.item);
+      setCategory(item);
+      // Restore preserved data if available
+      if (preservedAmount !== undefined) {
+        setAmount(preservedAmount);
+      }
+      if (preservedTitle !== undefined) {
+        setTitle(preservedTitle);
+      }
     }
-  }, [route.params?.item]);
+  }, [route.params?.item, route.params?.preservedAmount, route.params?.preservedTitle]);
 
   const handleScanQR = () => {
     setShowQRScanner(true);
@@ -200,19 +207,32 @@ const Create = ({navigation, route}) => {
   };
 
   const handleCategoryInput = () => {
-    navigation.navigate("Category");
+    navigation.navigate("Category", {
+      fromScreen: 'Create',
+      preservedAmount: amount,
+      preservedTitle: title
+    });
   }
 
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={tailwind`p-6`}>
-        {/* Header */}
-        <View style={tailwind`mb-8`}>
-          <Text style={[tailwind`text-3xl font-bold mb-2`, { color: colors.text }]}>New Expense</Text>
-          <Text style={[tailwind`text-base`, { color: colors.textSecondary }]}>
-            Track your spending quickly
-          </Text>
-        </View>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={tailwind`flex-1`}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          contentContainerStyle={tailwind`p-6 pb-24`}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={tailwind`mb-8`}>
+            <Text style={[tailwind`text-3xl font-bold mb-2`, { color: colors.text }]}>New Expense</Text>
+            <Text style={[tailwind`text-base`, { color: colors.textSecondary }]}>
+              Track your spending quickly
+            </Text>
+          </View>
 
         {/* Amount */}
         <View style={tailwind`mb-5`}>
@@ -221,6 +241,8 @@ const Create = ({navigation, route}) => {
             placeholder="₹0.00" 
             placeholderTextColor={colors.placeholder}
             keyboardType="numeric"
+            returnKeyType="next"
+            blurOnSubmit={false}
             style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, { 
               backgroundColor: colors.input,
               borderWidth: 1,
@@ -230,6 +252,9 @@ const Create = ({navigation, route}) => {
             value={amount}
             onChangeText={setAmount}
           />
+          {amount && parseFloat(amount) > 0 && (
+            <Text style={[tailwind`text-xs mt-1`, { color: colors.success || '#10b981' }]}>✓ Amount entered: ₹{parseFloat(amount).toFixed(2)}</Text>
+          )}
         </View>
 
         {/* Title */}
@@ -238,6 +263,7 @@ const Create = ({navigation, route}) => {
           <TextInput 
             placeholder="e.g., Grocery Shopping" 
             placeholderTextColor={colors.placeholder}
+            returnKeyType="done"
             style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, { 
               backgroundColor: colors.input,
               borderWidth: 1,
@@ -272,18 +298,34 @@ const Create = ({navigation, route}) => {
 
         {/* Save Only Button */}
         <Pressable
-          style={[tailwind`p-5 rounded-2xl mb-3 shadow-lg`, { backgroundColor: colors.primary }]}
+          style={({ pressed }) => [
+            tailwind`p-5 rounded-2xl mb-3 shadow-lg`, 
+            { 
+              backgroundColor: colors.primary,
+              opacity: pressed ? 0.8 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }]
+            }
+          ]}
           onPress={handleSaveOnly}
+          disabled={loading}
         >
           <Text style={tailwind`text-white text-lg font-bold text-center`}>
-            💾 Save Expense
+            {loading ? '⏳ Saving...' : '💾 Save Expense'}
           </Text>
         </Pressable>
 
         {/* Payment Button */}
         <Pressable
-          style={[tailwind`p-5 rounded-2xl shadow-lg`, { backgroundColor: colors.success }]}
+          style={({ pressed }) => [
+            tailwind`p-5 rounded-2xl shadow-lg`, 
+            { 
+              backgroundColor: colors.success,
+              opacity: pressed ? 0.8 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }]
+            }
+          ]}
           onPress={handleInitiatePayment}
+          disabled={loading}
         >
           <Text style={tailwind`text-white text-lg font-bold text-center`}>
             💳 Pay & Save
@@ -294,6 +336,7 @@ const Create = ({navigation, route}) => {
           Payment opens UPI apps like Google Pay, PhonePe, Paytm
         </Text>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Payment Modal */}
       <Modal
@@ -302,11 +345,17 @@ const Create = ({navigation, route}) => {
         animationType="slide"
         onRequestClose={() => setShowPaymentModal(false)}
       >
-        <View style={[tailwind`flex-1 justify-end`, { backgroundColor: colors.overlay }]}>
-          <View style={[tailwind`rounded-t-3xl p-6`, { backgroundColor: colors.surface }]}>
-            <Text style={[tailwind`text-2xl font-bold mb-4`, { color: colors.text }]}>
-              Payment Details
-            </Text>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={[tailwind`flex-1 justify-end`, { backgroundColor: colors.overlay }]}>
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+              <TouchableWithoutFeedback>
+                <View style={[tailwind`rounded-t-3xl p-6`, { backgroundColor: colors.surface }]}>
+                  <Text style={[tailwind`text-2xl font-bold mb-4`, { color: colors.text }]}>
+                    Payment Details
+                  </Text>
 
             {/* Payment Summary */}
             <View style={[tailwind`p-4 rounded-xl mb-4`, { backgroundColor: colors.borderLight }]}>
@@ -366,8 +415,11 @@ const Create = ({navigation, route}) => {
               </Pressable>
             </View>
           </View>
-        </View>
-      </Modal>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
 
       {/* QR Scanner Modal */}
       <Modal

@@ -200,9 +200,9 @@ export const buildUpiUrl = (params) => {
     upiUrl += `&tr=${encodeURIComponent(transactionRef)}`;
   }
 
-  if (merchantCode) {
-    upiUrl += `&mc=${encodeURIComponent(merchantCode)}`;
-  }
+  // Add REQUIRED amount and currency parameters (NPCI mandatory)
+  upiUrl += `&am=${formattedAmount}`;
+  upiUrl += `&cu=${currency}`;
 
   if (merchantCategory) {
     upiUrl += `&mode=${encodeURIComponent(merchantCategory)}`;
@@ -221,15 +221,11 @@ export const buildUpiUrl = (params) => {
     upiUrl += `&mtid=${encodeURIComponent(mtid)}`;
   }
 
-  if (tid) {
-    upiUrl += `&tid=${encodeURIComponent(tid)}`;
-  }
-
-  console.log('🔗 Generated UPI URL:', upiUrl);
-
   if (url) {
     upiUrl += `&url=${encodeURIComponent(url)}`;
   }
+
+  console.log('🔗 Generated UPI URL:', upiUrl);
 
   return upiUrl;
 };
@@ -271,10 +267,12 @@ export const initiateUpiPayment = async (paymentParams, onSuccess, onError) => {
       merchantCode: paymentParams.merchantCode || 'Not available',
     });
 
-    // Check if UPI apps are available
-    const canOpen = await Linking.canOpenURL(upiUrl);
-
-    if (!canOpen) {
+    // Try to open UPI app directly
+    // On Android, canOpenURL may fail even when UPI apps are installed due to query restrictions
+    // Better to attempt opening and handle the error
+    const supported = await Linking.canOpenURL(upiUrl).catch(() => true);
+    
+    if (!supported) {
       throw new Error('No UPI app found. Please install a UPI app like GPay, PhonePe, or Paytm.');
     }
 
@@ -289,6 +287,17 @@ export const initiateUpiPayment = async (paymentParams, onSuccess, onError) => {
     }
   } catch (error) {
     console.error('UPI Payment Error:', error);
+    
+    // Handle specific error when no app can handle the URL
+    if (error.message && error.message.includes('No Activity found')) {
+      if (onError) {
+        onError(new Error('No UPI app found. Please install GPay, PhonePe, or Paytm.'));
+      } else {
+        Alert.alert('No UPI App', 'Please install a UPI app like GPay, PhonePe, or Paytm to make payments.');
+      }
+      return;
+    }
+    
     if (onError) {
       onError(error);
     } else {
@@ -329,8 +338,8 @@ export const initiateQrPayment = async (params, onSuccess, onError) => {
       throw new Error('Payment amount is required');
     }
 
-    // Generate transaction reference
-    const transactionRef = `TXN${Date.now()}`;
+    // Generate transaction reference with app name
+    const transactionRef = `BUDGETBUDDY_TXN${Date.now()}`;
 
     // Build transaction note
     let transactionNote = parsedData.transactionNote || '';
@@ -345,7 +354,7 @@ export const initiateQrPayment = async (params, onSuccess, onError) => {
       amount: paymentAmount,
       currency: parsedData.currency || 'INR',
       transactionNote,
-      transactionRef: parsedData.transactionRef || transactionRef,
+      transactionRef: transactionRef, // Always use our generated transaction ID
       merchantCode: parsedData.merchantCode,
       merchantCategory: parsedData.merchantCategory,
       url: parsedData.url,
@@ -390,8 +399,8 @@ export const initiateManualPayment = async (params, onSuccess, onError) => {
       throw new Error('Amount is required');
     }
 
-    // Generate transaction reference
-    const transactionRef = `TXN${Date.now()}`;
+    // Generate transaction reference with app name
+    const transactionRef = `BUDGETBUDDY_TXN${Date.now()}`;
 
     // Build transaction note
     const transactionNote = `${category} - ${title}`.replace(/\n/g, ' ').trim();

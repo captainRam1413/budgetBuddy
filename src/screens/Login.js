@@ -49,10 +49,13 @@ const Login = ({ navigation }) => {
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={tailwind`flex-1`}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView 
-          contentContainerStyle={tailwind`flex-grow px-6`}
+          contentContainerStyle={tailwind`flex-grow px-6 pb-24`}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
         >
           {/* Logo/Header with Gradient Background */}
           <View style={tailwind`items-center pt-16 pb-12 -mx-6 px-6 mb-8`}>
@@ -73,6 +76,8 @@ const Login = ({ navigation }) => {
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
+              returnKeyType="next"
+              blurOnSubmit={false}
               style={[tailwind`p-4 rounded-2xl text-base shadow-sm`, {
                 backgroundColor: colors.input,
                 borderWidth: 1,
@@ -91,6 +96,8 @@ const Login = ({ navigation }) => {
               secureTextEntry
               value={password}
               onChangeText={setPassword}
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
               style={[tailwind`p-4 rounded-2xl text-base shadow-sm`, {
                 backgroundColor: colors.input,
                 borderWidth: 1,
@@ -103,13 +110,22 @@ const Login = ({ navigation }) => {
           {/* Login Button */}
           <Pressable
             onPress={handleLogin}
-            disabled={loading}
-            style={[tailwind`py-5 rounded-2xl mb-4 shadow-lg`, { backgroundColor: colors.primary, opacity: loading ? 0.7 : 1 }]}
+            disabled={loading || !email || !password}
+            style={({ pressed }) => [
+              tailwind`py-5 rounded-2xl mb-4 shadow-lg`, 
+              { 
+                backgroundColor: (loading || !email || !password) ? colors.border : colors.primary,
+                opacity: pressed ? 0.8 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }]
+              }
+            ]}
           >
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={tailwind`text-white text-center font-bold text-lg`}>Login to Account</Text>
+              <Text style={[tailwind`text-center font-bold text-lg`, { 
+                color: (loading || !email || !password) ? colors.textSecondary : 'white' 
+              }]}>Login to Account</Text>
             )}
           </Pressable>
 

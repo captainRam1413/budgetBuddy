@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TextInput, Pressable, Alert, Modal, Switch, SafeAreaView } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TextInput, Pressable, Alert, Modal, Switch, SafeAreaView, ActivityIndicator } from 'react-native'
 import React, { useState } from 'react'
 import tailwind from 'twrnc'
 import { useExpense } from '../context/ExpenseContext'
@@ -10,12 +10,15 @@ const Profile = ({ navigation }) => {
   const { 
     totalBudget, 
     setBudget, 
+    budgetPeriod,
+    updateBudgetPeriod,
     categoryBudgets, 
     setCategoryBudget,
     getCategoryBudgetStatus,
     getTotalSpending,
     getAllCategories,
     addCustomCategory,
+    deleteCategory,
     userData,
     clearAllData
   } = useExpense();
@@ -28,6 +31,9 @@ const Profile = ({ navigation }) => {
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [showEditBudgetModal, setShowEditBudgetModal] = useState(false);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+  const [savingPeriod, setSavingPeriod] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   
   // New category fields
@@ -153,6 +159,39 @@ const Profile = ({ navigation }) => {
     
     setCategoryBudget(editingCategory.name, amount);
     setShowEditCategoryModal(false);
+    Alert.alert("Success", `Budget for ${editingCategory.name} updated to ₹${amount.toFixed(2)}`);
+  };
+
+  const handleDeleteCategory = async (category) => {
+    Alert.alert(
+      'Delete Category',
+      `Are you sure you want to delete "${category.name}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await deleteCategory(category.name);
+            if (result.success) {
+              Alert.alert('Success', 'Category deleted successfully');
+            } else {
+              if (result.hasExpenses) {
+                Alert.alert(
+                  'Cannot Delete Category',
+                  `This category has ${result.expenseCount} expense(s) associated with it.\n\nPlease delete or reassign these expenses first before deleting the category.`,
+                  [{ text: 'OK' }]
+                );
+              } else {
+                Alert.alert('Error', result.message || 'Failed to delete category');
+              }
+            }
+          }
+        }
+      ]
+    );
+  };
+    setShowEditCategoryModal(false);
     setEditingCategory(null);
     Alert.alert("Success", `Budget for ${editingCategory.name} updated to ₹${amount.toFixed(2)}`);
   };
@@ -200,7 +239,7 @@ const Profile = ({ navigation }) => {
                       onPress: async () => {
                         await authAPI.logout();
                         clearAllData();
-                        navigation.replace('Login');
+                        // Navigation will be handled automatically by AppNavigator
                       }
                     }
                   ]
@@ -212,8 +251,11 @@ const Profile = ({ navigation }) => {
             </Pressable>
           </View>
           
-          {/* User Info */}
-          <View style={[tailwind`flex-row items-center p-4 rounded-2xl`, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+          {/* User Info - Clickable */}
+          <Pressable 
+            onPress={() => setShowUserProfileModal(true)}
+            style={[tailwind`flex-row items-center p-4 rounded-2xl`, { backgroundColor: 'rgba(255,255,255,0.15)' }]}
+          >
             <View style={[tailwind`w-14 h-14 rounded-full items-center justify-center mr-3`, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
               <Text style={tailwind`text-3xl`}>👤</Text>
             </View>
@@ -227,14 +269,16 @@ const Profile = ({ navigation }) => {
                 </Text>
               )}
             </View>
-          </View>
+            <Text style={tailwind`text-white text-lg`}>›</Text>
+          </Pressable>
         </View>
 
-        {/* Total Budget Card */}
-        <View style={[tailwind`mx-5 -mt-6 rounded-3xl p-6 shadow-lg`, { backgroundColor: colors.surface }]}>
+          <View style={[tailwind`mx-5 -mt-6 rounded-3xl p-6 shadow-lg`, { backgroundColor: colors.surface }]}>
           <View style={tailwind`flex-row justify-between items-start mb-4`}>
             <View style={tailwind`flex-1`}>
-              <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>💰 Monthly Budget</Text>
+              <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>
+                💰 {budgetPeriod === 'weekly' ? 'Weekly' : 'Monthly'} Budget
+              </Text>
               {totalBudget > 0 ? (
                 <>
                   <Text style={[tailwind`text-4xl font-bold`, { color: colors.text }]}>
@@ -356,12 +400,20 @@ const Profile = ({ navigation }) => {
                     )}
                   </View>
                 </View>
-                <Pressable
-                  style={[tailwind`px-4 py-2 rounded-xl shadow-sm`, { backgroundColor: colors.primary }]}
-                  onPress={() => handleEditCategory(category)}
-                >
-                  <Text style={tailwind`text-white font-semibold text-xs`}>Edit</Text>
-                </Pressable>
+                <View style={tailwind`flex-row gap-2`}>
+                  <Pressable
+                    style={[tailwind`px-4 py-2 rounded-xl shadow-sm`, { backgroundColor: colors.primary }]}
+                    onPress={() => handleEditCategory(category)}
+                  >
+                    <Text style={tailwind`text-white font-semibold text-xs`}>Edit</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[tailwind`px-3 py-2 rounded-xl shadow-sm`, { backgroundColor: colors.error }]}
+                    onPress={() => handleDeleteCategory(category)}
+                  >
+                    <Text style={tailwind`text-white font-semibold text-xs`}>🗑️</Text>
+                  </Pressable>
+                </View>
               </View>
 
               {/* Progress bar for category */}
@@ -654,10 +706,351 @@ const Profile = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* User Profile Modal */}
+      <Modal
+        visible={showUserProfileModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowUserProfileModal(false)}
+      >
+        <Pressable 
+          style={[tailwind`flex-1 justify-end`, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+          onPress={() => setShowUserProfileModal(false)}
+        >
+          <Pressable style={[tailwind`rounded-t-3xl shadow-2xl flex-1`, { backgroundColor: colors.surface, maxHeight: '85%' }]}>
+            {/* Profile Header */}
+            <View style={[tailwind`p-6 pb-4`, { 
+              backgroundColor: colors.primary,
+            }]}>
+              <View style={tailwind`flex-row items-center justify-between mb-4`}>
+                <Text style={tailwind`text-white text-2xl font-bold`}>Profile</Text>
+                <Pressable
+                  onPress={() => setShowUserProfileModal(false)}
+                  style={[tailwind`w-10 h-10 rounded-full items-center justify-center`, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
+                >
+                  <Text style={tailwind`text-white text-xl`}>✕</Text>
+                </Pressable>
+              </View>
+              
+              {/* User Avatar & Info */}
+              <View style={tailwind`items-center`}>
+                <View style={[tailwind`w-24 h-24 rounded-full items-center justify-center mb-4`, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                  <Text style={tailwind`text-5xl`}>👤</Text>
+                </View>
+                <Text style={tailwind`text-white text-2xl font-bold mb-1`}>
+                  {userData.name || 'User'}
+                </Text>
+                {userData.email && (
+                  <Text style={[tailwind`text-sm mb-1`, { color: 'rgba(255,255,255,0.8)' }]}>
+                    {userData.email}
+                  </Text>
+                )}
+                {userData.phone && (
+                  <Text style={[tailwind`text-sm`, { color: 'rgba(255,255,255,0.7)' }]}>
+                    {userData.phone}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            <ScrollView 
+              contentContainerStyle={tailwind`p-6 pb-8`}
+              showsVerticalScrollIndicator={false}
+              bounces={true}
+            >
+              {/* Budget Period Section */}
+              <View style={[tailwind`mb-6 rounded-2xl overflow-hidden shadow-md`, { backgroundColor: colors.surface }]}>
+                <View style={[tailwind`p-4 pb-3`, { 
+                  backgroundColor: budgetPeriod === 'weekly' ? '#6366F1' : '#8B5CF6',
+                }]}>
+                  <View style={tailwind`flex-row items-center justify-between`}>
+                    <View style={tailwind`flex-row items-center flex-1`}>
+                      <Text style={tailwind`text-2xl mr-3`}>
+                        {budgetPeriod === 'weekly' ? '📆' : '📅'}
+                      </Text>
+                      <View>
+                        <Text style={tailwind`text-white text-lg font-bold`}>Budget Period</Text>
+                        <Text style={[tailwind`text-xs`, { color: 'rgba(255,255,255,0.8)' }]}>
+                          {budgetPeriod === 'weekly' ? 'Weekly' : 'Monthly'} Cycle
+                        </Text>
+                      </View>
+                    </View>
+                    <Pressable
+                      onPress={() => setShowPeriodModal(true)}
+                      style={[tailwind`px-4 py-2 rounded-xl`, { backgroundColor: 'rgba(255,255,255,0.25)' }]}
+                    >
+                      <Text style={tailwind`text-white font-bold text-sm`}>Change</Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View style={tailwind`p-4`}>
+                  <View style={[tailwind`p-4 rounded-xl border-2 mb-3`, { 
+                    backgroundColor: budgetPeriod === 'weekly' ? '#EEF2FF' : '#F5F3FF',
+                    borderColor: budgetPeriod === 'weekly' ? '#6366F1' : '#8B5CF6',
+                  }]}>
+                    <View style={tailwind`flex-row items-center justify-between mb-2`}>
+                      <View style={tailwind`flex-row items-center flex-1`}>
+                        <View style={[tailwind`w-10 h-10 rounded-full items-center justify-center mr-3`, { 
+                          backgroundColor: budgetPeriod === 'weekly' ? '#6366F1' : '#8B5CF6',
+                        }]}>
+                          <Text style={tailwind`text-xl`}>
+                            {budgetPeriod === 'weekly' ? '📆' : '📅'}
+                          </Text>
+                        </View>
+                        <View style={tailwind`flex-1`}>
+                          <Text style={[tailwind`text-base font-bold`, { 
+                            color: budgetPeriod === 'weekly' ? '#6366F1' : '#8B5CF6' 
+                          }]}>
+                            {budgetPeriod === 'weekly' ? 'Weekly Budget' : 'Monthly Budget'}
+                          </Text>
+                          <Text style={[tailwind`text-xs`, { color: colors.textSecondary }]}>
+                            Currently Active
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={[tailwind`w-8 h-8 rounded-full items-center justify-center`, { 
+                        backgroundColor: budgetPeriod === 'weekly' ? '#6366F1' : '#8B5CF6',
+                      }]}>
+                        <Text style={tailwind`text-white font-bold`}>✓</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={[tailwind`p-3 rounded-xl`, { 
+                      backgroundColor: 'rgba(255,255,255,0.7)' 
+                    }]}>
+                      <View style={tailwind`flex-row items-center`}>
+                        <Text style={tailwind`mr-2`}>🔄</Text>
+                        <Text style={[tailwind`text-sm font-semibold`, { color: colors.text }]}>
+                          {budgetPeriod === 'weekly' 
+                            ? 'Resets every Monday at 12:00 AM' 
+                            : 'Resets on 1st of each month'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Stats Cards */}
+                  <View style={tailwind`flex-row gap-2`}>
+                    <View style={[tailwind`flex-1 p-3 rounded-xl`, { backgroundColor: colors.primary + '15' }]}>
+                      <Text style={[tailwind`text-center text-lg font-bold mb-1`, { color: colors.text }]}>
+                        {budgetPeriod === 'weekly' ? '7' : '30'}
+                      </Text>
+                      <Text style={[tailwind`text-center text-xs`, { color: colors.textSecondary }]}>
+                        Days
+                      </Text>
+                    </View>
+                    <View style={[tailwind`flex-1 p-3 rounded-xl`, { backgroundColor: colors.success + '15' }]}>
+                      <Text style={[tailwind`text-center text-lg font-bold mb-1`, { color: colors.text }]}>
+                        {budgetPeriod === 'weekly' ? '52' : '12'}
+                      </Text>
+                      <Text style={[tailwind`text-center text-xs`, { color: colors.textSecondary }]}>
+                        Cycles/Year
+                      </Text>
+                    </View>
+                    <View style={[tailwind`flex-1 p-3 rounded-xl`, { backgroundColor: colors.info + '15' }]}>
+                      <Text style={tailwind`text-center text-lg mb-1`}>
+                        {budgetPeriod === 'weekly' ? '🔥' : '📊'}
+                      </Text>
+                      <Text style={[tailwind`text-center text-xs`, { color: colors.textSecondary }]}>
+                        {budgetPeriod === 'weekly' ? 'Frequent' : 'Standard'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Budget Period Modal - Enhanced */}
+      <Modal
+        visible={showPeriodModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPeriodModal(false)}
+      >
+        <Pressable 
+          style={[tailwind`flex-1 justify-end`, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+          onPress={() => setShowPeriodModal(false)}
+        >
+          <View style={[tailwind`rounded-t-3xl p-6 shadow-2xl`, { backgroundColor: colors.surface }]}>
+            {/* Header */}
+            <View style={tailwind`flex-row items-center justify-between mb-6`}>
+              <View>
+                <Text style={[tailwind`text-2xl font-bold mb-1`, { color: colors.text }]}>
+                  Budget Period
+                </Text>
+                <Text style={[tailwind`text-sm`, { color: colors.textSecondary }]}>
+                  Choose your budgeting cycle
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setShowPeriodModal(false)}
+                style={[tailwind`w-10 h-10 rounded-full items-center justify-center`, { backgroundColor: colors.border }]}
+              >
+                <Text style={[tailwind`text-xl`, { color: colors.text }]}>✕</Text>
+              </Pressable>
+            </View>
+
+            {/* Weekly Option */}
+            <Pressable
+              onPress={async () => {
+                if (budgetPeriod === 'weekly') {
+                  setShowPeriodModal(false);
+                  return;
+                }
+                setSavingPeriod(true);
+                await updateBudgetPeriod('weekly');
+                setSavingPeriod(false);
+                setShowPeriodModal(false);
+                Alert.alert('✅ Budget Period Updated', 'Your budget is now set to weekly cycle. It will reset every Monday at 12:00 AM.', [
+                  { text: 'Got it', style: 'default' }
+                ]);
+              }}
+              disabled={savingPeriod}
+              style={[tailwind`rounded-2xl mb-4 border-3 overflow-hidden shadow-sm`, { 
+                backgroundColor: budgetPeriod === 'weekly' ? '#EEF2FF' : colors.surface,
+                borderColor: budgetPeriod === 'weekly' ? '#6366F1' : colors.border,
+                borderWidth: budgetPeriod === 'weekly' ? 3 : 2,
+              }]}
+            >
+              {budgetPeriod === 'weekly' && (
+                <View style={[tailwind`absolute top-0 right-0 px-3 py-1 rounded-bl-xl`, { backgroundColor: '#6366F1' }]}>
+                  <Text style={tailwind`text-white text-xs font-bold`}>ACTIVE</Text>
+                </View>
+              )}
+              
+              <View style={tailwind`p-5`}>
+                <View style={tailwind`flex-row items-center mb-3`}>
+                  <View style={[tailwind`w-14 h-14 rounded-2xl items-center justify-center mr-4`, { 
+                    backgroundColor: budgetPeriod === 'weekly' ? '#6366F1' : colors.border 
+                  }]}>
+                    <Text style={tailwind`text-3xl`}>📆</Text>
+                  </View>
+                  <View style={tailwind`flex-1`}>
+                    <Text style={[tailwind`text-xl font-bold`, { 
+                      color: budgetPeriod === 'weekly' ? '#6366F1' : colors.text 
+                    }]}>
+                      Weekly Budget
+                    </Text>
+                    <Text style={[tailwind`text-xs mt-1`, { color: colors.textSecondary }]}>
+                      7 days • 52 cycles per year
+                    </Text>
+                  </View>
+                  {budgetPeriod === 'weekly' && (
+                    <View style={[tailwind`w-8 h-8 rounded-full items-center justify-center`, { backgroundColor: '#6366F1' }]}>
+                      <Text style={tailwind`text-white text-base font-bold`}>✓</Text>
+                    </View>
+                  )}
+                </View>
+                
+                <View style={[tailwind`p-3 rounded-xl`, { backgroundColor: budgetPeriod === 'weekly' ? 'rgba(99,102,241,0.1)' : colors.border }]}>
+                  <View style={tailwind`flex-row items-center mb-2`}>
+                    <Text style={tailwind`mr-2`}>🔄</Text>
+                    <Text style={[tailwind`text-sm font-semibold`, { color: colors.text }]}>
+                      Resets every Monday
+                    </Text>
+                  </View>
+                  <Text style={[tailwind`text-xs`, { color: colors.textSecondary }]}>
+                    Perfect for weekly planning and tracking short-term spending habits. Great for frequent budgeters.
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+
+            {/* Monthly Option */}
+            <Pressable
+              onPress={async () => {
+                if (budgetPeriod === 'monthly') {
+                  setShowPeriodModal(false);
+                  return;
+                }
+                setSavingPeriod(true);
+                await updateBudgetPeriod('monthly');
+                setSavingPeriod(false);
+                setShowPeriodModal(false);
+                Alert.alert('✅ Budget Period Updated', 'Your budget is now set to monthly cycle. It will reset on the 1st of each month.', [
+                  { text: 'Got it', style: 'default' }
+                ]);
+              }}
+              disabled={savingPeriod}
+              style={[tailwind`rounded-2xl mb-4 border-3 overflow-hidden shadow-sm`, { 
+                backgroundColor: budgetPeriod === 'monthly' ? '#F5F3FF' : colors.surface,
+                borderColor: budgetPeriod === 'monthly' ? '#8B5CF6' : colors.border,
+                borderWidth: budgetPeriod === 'monthly' ? 3 : 2,
+              }]}
+            >
+              {budgetPeriod === 'monthly' && (
+                <View style={[tailwind`absolute top-0 right-0 px-3 py-1 rounded-bl-xl`, { backgroundColor: '#8B5CF6' }]}>
+                  <Text style={tailwind`text-white text-xs font-bold`}>ACTIVE</Text>
+                </View>
+              )}
+              
+              <View style={tailwind`p-5`}>
+                <View style={tailwind`flex-row items-center mb-3`}>
+                  <View style={[tailwind`w-14 h-14 rounded-2xl items-center justify-center mr-4`, { 
+                    backgroundColor: budgetPeriod === 'monthly' ? '#8B5CF6' : colors.border 
+                  }]}>
+                    <Text style={tailwind`text-3xl`}>📅</Text>
+                  </View>
+                  <View style={tailwind`flex-1`}>
+                    <Text style={[tailwind`text-xl font-bold`, { 
+                      color: budgetPeriod === 'monthly' ? '#8B5CF6' : colors.text 
+                    }]}>
+                      Monthly Budget
+                    </Text>
+                    <Text style={[tailwind`text-xs mt-1`, { color: colors.textSecondary }]}>
+                      ~30 days • 12 cycles per year
+                    </Text>
+                  </View>
+                  {budgetPeriod === 'monthly' && (
+                    <View style={[tailwind`w-8 h-8 rounded-full items-center justify-center`, { backgroundColor: '#8B5CF6' }]}>
+                      <Text style={tailwind`text-white text-base font-bold`}>✓</Text>
+                    </View>
+                  )}
+                </View>
+                
+                <View style={[tailwind`p-3 rounded-xl`, { backgroundColor: budgetPeriod === 'monthly' ? 'rgba(139,92,246,0.1)' : colors.border }]}>
+                  <View style={tailwind`flex-row items-center mb-2`}>
+                    <Text style={tailwind`mr-2`}>🔄</Text>
+                    <Text style={[tailwind`text-sm font-semibold`, { color: colors.text }]}>
+                      Resets on 1st of each month
+                    </Text>
+                  </View>
+                  <Text style={[tailwind`text-xs`, { color: colors.textSecondary }]}>
+                    Traditional budgeting approach aligned with monthly bills and salary cycles. Most popular choice.
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+
+            {savingPeriod && (
+              <View style={[tailwind`p-4 rounded-xl mb-4 flex-row items-center justify-center`, { backgroundColor: colors.primary + '20' }]}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[tailwind`ml-3 font-semibold`, { color: colors.primary }]}>Saving to database...</Text>
+              </View>
+            )}
+
+            <Pressable
+              style={[tailwind`p-4 rounded-xl`, { 
+                backgroundColor: colors.border,
+                opacity: savingPeriod ? 0.5 : 1 
+              }]}
+              onPress={() => setShowPeriodModal(false)}
+              disabled={savingPeriod}
+            >
+              <Text style={[tailwind`font-bold text-center`, { color: colors.text }]}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
       </ScrollView>
     </SafeAreaView>
   );
-};
+
 
 export default Profile
 

@@ -173,6 +173,8 @@ export const userAPI = {
           phone: profile.phone,
           totalBudget: profile.totalBudget,
           hasCompletedOnboarding: profile.hasCompletedOnboarding,
+          budgetPeriod: profile.budgetPeriod || 'monthly',
+          periodStartDate: profile.periodStartDate || new Date().toISOString(),
         },
       };
     } catch (error) {
@@ -250,6 +252,30 @@ export const userAPI = {
     } catch (error) {
       console.error('Complete onboarding error:', error);
       return { success: false, message: error.message || 'Failed to complete onboarding' };
+    }
+  },
+
+  updateBudgetPeriod: async (budgetPeriod, periodStartDate) => {
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        return { success: false, message: 'User not authenticated' };
+      }
+
+      await databases.updateDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.users,
+        userId,
+        { budgetPeriod, periodStartDate }
+      );
+
+      return {
+        success: true,
+        message: 'Budget period updated successfully',
+      };
+    } catch (error) {
+      console.error('Update budget period error:', error);
+      return { success: false, message: error.message || 'Failed to update budget period' };
     }
   },
 };
@@ -646,6 +672,37 @@ export const expenseAPI = {
     } catch (error) {
       console.error('Create expense error:', error);
       return { success: false, message: error.message || 'Failed to create expense' };
+    }
+  },
+
+  update: async (expenseId, title, amount, category, icon, color) => {
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        return { success: false, message: 'User not authenticated' };
+      }
+
+      const expense = await databases.updateDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.expenses,
+        expenseId,
+        {
+          title,
+          amount,
+          category,
+          icon,
+          color,
+        }
+      );
+
+      return {
+        success: true,
+        expenseId: expense.$id,
+        message: 'Expense updated successfully',
+      };
+    } catch (error) {
+      console.error('Update expense error:', error);
+      return { success: false, message: error.message || 'Failed to update expense' };
     }
   },
 
