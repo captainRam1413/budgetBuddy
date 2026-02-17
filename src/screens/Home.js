@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, Pressable, SafeAreaView, Modal, TextInput, ScrollView, Alert, RefreshControl, Linking } from "react-native";
+import { LinearGradient } from 'expo-linear-gradient';
 import React from "react";
 import tailwind from "twrnc";
 import { FlatList } from "react-native";
@@ -11,9 +12,9 @@ import { getId, getDate } from '../helper';
 import { expenseAPI } from '../services/appwriteAPI';
 import { initiateQrPayment, initiateManualPayment, showPaymentConfirmation } from '../services/paymentService';
 const Home = ({ navigation, route }) => {
-  const { 
-    expenses, 
-    totalBudget, 
+  const {
+    expenses,
+    totalBudget,
     getTotalSpending,
     budgetPeriod,
     getExpensesForCurrentPeriod,
@@ -22,7 +23,7 @@ const Home = ({ navigation, route }) => {
     loadUserData,
     isLoading
   } = useExpense();
-  
+
   const { colors } = useTheme();
   const periodExpenses = getExpensesForCurrentPeriod();
   const totalSpent = getTotalSpending(true); // Use current period
@@ -163,7 +164,12 @@ const Home = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
-      <View style={[tailwind`px-5 py-6`, { backgroundColor: colors.primary }]}>
+      <LinearGradient
+        colors={[colors.primaryDark, colors.primary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={tailwind`px-5 py-6 rounded-b-3xl shadow-lg`}
+      >
         <View style={tailwind`flex-row justify-between items-center`}>
           <View>
             <Text style={tailwind`text-white text-base opacity-90`}>Welcome back,</Text>
@@ -171,11 +177,11 @@ const Home = ({ navigation, route }) => {
               {userData.name || 'User'} 👋
             </Text>
           </View>
-          <View style={[tailwind`w-12 h-12 rounded-full items-center justify-center`, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+          <View style={[tailwind`w-12 h-12 rounded-full items-center justify-center border border-white/20`, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
             <Text style={tailwind`text-2xl`}>👤</Text>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Budget Overview Card */}
       {totalBudget > 0 ? (
@@ -190,28 +196,28 @@ const Home = ({ navigation, route }) => {
               </Text>
             </View>
           </View>
-          
+
           <Text style={[tailwind`text-4xl font-bold mb-1`, { color: colors.text }]}>
             ₹{totalBudget.toFixed(2)}
           </Text>
-          
+
           <Text style={[tailwind`text-sm mb-3`, { color: colors.textTertiary }]}>
             Spent ₹{totalSpent.toFixed(2)} • {budgetPercentage.toFixed(0)}% used
           </Text>
-          
+
           {/* Progress Bar */}
           <View style={[tailwind`h-3 rounded-full overflow-hidden mb-3`, { backgroundColor: colors.borderLight }]}>
-            <View 
+            <View
               style={[
                 tailwind`h-full rounded-full`,
-                { 
+                {
                   width: `${Math.min(budgetPercentage, 100)}%`,
                   backgroundColor: budgetPercentage > 90 ? colors.error : budgetPercentage > 70 ? colors.warning : colors.success
                 }
-              ]} 
+              ]}
             />
           </View>
-          
+
           <View style={tailwind`flex-row justify-between items-center`}>
             <View>
               <Text style={[tailwind`text-xs`, { color: colors.textTertiary }]}>Remaining</Text>
@@ -250,7 +256,7 @@ const Home = ({ navigation, route }) => {
           <Text style={tailwind`text-white text-2xl mr-2`}>💳</Text>
           <Text style={tailwind`text-white font-bold text-base`}>Pay Now</Text>
         </Pressable>
-        
+
         <Pressable
           style={[tailwind`flex-1 py-5 rounded-2xl shadow-lg flex-row items-center justify-center`, { backgroundColor: colors.success }]}
           onPress={() => navigation.navigate('Create')}
@@ -308,15 +314,15 @@ const Home = ({ navigation, route }) => {
               {/* Amount */}
               <View style={tailwind`mb-4`}>
                 <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>💵 Amount *</Text>
-                <TextInput 
-                  placeholder="₹0.00" 
+                <TextInput
+                  placeholder="₹0.00"
                   placeholderTextColor={colors.placeholder}
                   keyboardType="numeric"
-                  style={[tailwind`p-4 rounded-xl text-lg border-2`, { 
+                  style={[tailwind`p-4 rounded-xl text-lg border-2`, {
                     backgroundColor: colors.input,
                     borderColor: colors.inputBorder,
                     color: colors.text
-                  }]} 
+                  }]}
                   value={amount}
                   onChangeText={setAmount}
                 />
@@ -325,14 +331,14 @@ const Home = ({ navigation, route }) => {
               {/* Title */}
               <View style={tailwind`mb-4`}>
                 <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>📝 Description *</Text>
-                <TextInput 
-                  placeholder="e.g., Grocery Shopping" 
+                <TextInput
+                  placeholder="e.g., Grocery Shopping"
                   placeholderTextColor={colors.placeholder}
-                  style={[tailwind`p-4 rounded-xl text-lg border-2`, { 
+                  style={[tailwind`p-4 rounded-xl text-lg border-2`, {
                     backgroundColor: colors.input,
                     borderColor: colors.inputBorder,
                     color: colors.text
-                  }]} 
+                  }]}
                   value={title}
                   onChangeText={setTitle}
                 />
@@ -341,12 +347,12 @@ const Home = ({ navigation, route }) => {
               {/* Category */}
               <View style={tailwind`mb-4`}>
                 <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>📂 Category *</Text>
-                <Pressable 
+                <Pressable
                   onPress={() => {
                     setShowPaymentModal(false);
                     navigation.navigate("Category", { fromScreen: "Home" });
                   }}
-                  style={[tailwind`p-4 rounded-xl border-2 flex-row justify-between items-center`, { 
+                  style={[tailwind`p-4 rounded-xl border-2 flex-row justify-between items-center`, {
                     backgroundColor: colors.input,
                     borderColor: colors.inputBorder
                   }]}
@@ -362,14 +368,14 @@ const Home = ({ navigation, route }) => {
               <View style={tailwind`mb-4`}>
                 <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>💳 UPI ID *</Text>
                 <View style={tailwind`flex-row gap-2`}>
-                  <TextInput 
-                    placeholder="user@upi" 
+                  <TextInput
+                    placeholder="user@upi"
                     placeholderTextColor={colors.placeholder}
-                    style={[tailwind`flex-1 p-4 rounded-xl text-base border-2`, { 
+                    style={[tailwind`flex-1 p-4 rounded-xl text-base border-2`, {
                       backgroundColor: colors.input,
                       borderColor: colors.inputBorder,
                       color: colors.text
-                    }]} 
+                    }]}
                     value={upiId}
                     onChangeText={setUpiId}
                   />
@@ -402,7 +408,7 @@ const Home = ({ navigation, route }) => {
         animationType="slide"
         onRequestClose={() => setShowQRScanner(false)}
       >
-        <QRScanner 
+        <QRScanner
           onScan={handleQRScanned}
           onClose={() => setShowQRScanner(false)}
         />

@@ -18,13 +18,13 @@ export const authAPI = {
     try {
       // Create account
       const user = await account.create(ID.unique(), email, password, name);
-      
+
       // Create session (auto-login)
       await account.createEmailPasswordSession(email, password);
-      
+
       // Store user ID
       await AsyncStorage.setItem('userId', user.$id);
-      
+
       // Create user profile in database with additional fields
       try {
         await databases.createDocument(
@@ -44,7 +44,7 @@ export const authAPI = {
         console.error('Database document creation error:', dbError);
         // Continue even if document creation fails
       }
-      
+
       return {
         success: true,
         userId: user.$id,
@@ -63,12 +63,12 @@ export const authAPI = {
     try {
       // Create session
       const session = await account.createEmailPasswordSession(email, password);
-      
+
       // Get user details
       const user = await account.get();
-      
+
       await AsyncStorage.setItem('userId', user.$id);
-      
+
       // Try to get user profile from database
       try {
         const profile = await databases.getDocument(
@@ -76,7 +76,7 @@ export const authAPI = {
           APPWRITE_CONFIG.collections.users,
           user.$id
         );
-        
+
         return {
           success: true,
           user: {
@@ -104,7 +104,7 @@ export const authAPI = {
             userId: user.$id,
           }
         );
-        
+
         return {
           success: true,
           user: {
@@ -642,7 +642,7 @@ export const expenseAPI = {
     }
   },
 
-  create: async (title, amount, category, icon, color) => {
+  create: async (title, amount, category, icon, color, date) => {
     try {
       const userId = await getCurrentUserId();
       if (!userId) {
@@ -660,7 +660,7 @@ export const expenseAPI = {
           category,
           icon,
           color,
-          date: new Date().toISOString(),
+          date: date || new Date().toISOString(),
         }
       );
 
@@ -675,24 +675,30 @@ export const expenseAPI = {
     }
   },
 
-  update: async (expenseId, title, amount, category, icon, color) => {
+  update: async (expenseId, title, amount, category, icon, color, date) => {
     try {
       const userId = await getCurrentUserId();
       if (!userId) {
         return { success: false, message: 'User not authenticated' };
       }
 
+      const updateData = {
+        title,
+        amount,
+        category,
+        icon,
+        color,
+      };
+
+      if (date) {
+        updateData.date = date;
+      }
+
       const expense = await databases.updateDocument(
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.expenses,
         expenseId,
-        {
-          title,
-          amount,
-          category,
-          icon,
-          color,
-        }
+        updateData
       );
 
       return {

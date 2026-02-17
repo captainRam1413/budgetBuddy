@@ -20,9 +20,9 @@ const Stack = createNativeStackNavigator();
 function MyTabs() {
     const { colors, isDarkMode } = useTheme();
     const insets = useSafeAreaInsets();
-    
+
     return (
-        <Tab.Navigator 
+        <Tab.Navigator
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {
@@ -46,8 +46,8 @@ function MyTabs() {
                 },
             }}
         >
-            <Tab.Screen 
-                name="Home" 
+            <Tab.Screen
+                name="Home"
                 component={Home}
                 options={{
                     tabBarIcon: ({ focused, color }) => (
@@ -55,8 +55,8 @@ function MyTabs() {
                     ),
                 }}
             />
-            <Tab.Screen 
-                name="Create" 
+            <Tab.Screen
+                name="Create"
                 component={Create}
                 options={{
                     tabBarIcon: ({ focused, color }) => (
@@ -64,8 +64,8 @@ function MyTabs() {
                     ),
                 }}
             />
-            <Tab.Screen 
-                name="Insights" 
+            <Tab.Screen
+                name="Insights"
                 component={Insights}
                 options={{
                     tabBarIcon: ({ focused, color }) => (
@@ -73,8 +73,8 @@ function MyTabs() {
                     ),
                 }}
             />
-            <Tab.Screen 
-                name="Profile" 
+            <Tab.Screen
+                name="Profile"
                 component={Profile}
                 options={{
                     tabBarIcon: ({ focused, color }) => (
@@ -92,42 +92,49 @@ export default function AppNavigator(params) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
     const [hasLoadedData, setHasLoadedData] = useState(false);
+    const isAuthenticatedRef = React.useRef(false);
+    const hasLoadedDataRef = React.useRef(false);
 
     useEffect(() => {
         checkAuth();
-        
+
         // Set up interval to check authentication status periodically
         const authCheckInterval = setInterval(() => {
             checkAuth();
         }, 2000); // Check every 2 seconds
-        
+
         return () => clearInterval(authCheckInterval);
     }, []);
 
     const checkAuth = async () => {
         try {
             const authenticated = await authAPI.isAuthenticated();
-            
-            if (authenticated !== isAuthenticated) {
+
+            if (authenticated !== isAuthenticatedRef.current) {
+                isAuthenticatedRef.current = authenticated;
                 setIsAuthenticated(authenticated);
-                
+
                 // Load user data only when authentication state changes to true
-                if (authenticated && !hasLoadedData) {
+                if (authenticated && !hasLoadedDataRef.current) {
                     console.log('🔄 Loading user data from backend...');
                     await loadUserData();
+                    hasLoadedDataRef.current = true;
                     setHasLoadedData(true);
                 }
-                
+
                 // Reset loaded flag when user logs out
-                if (!authenticated && hasLoadedData) {
+                if (!authenticated && hasLoadedDataRef.current) {
+                    hasLoadedDataRef.current = false;
                     setHasLoadedData(false);
                 }
             }
         } catch (error) {
             console.error('Auth check error:', error);
-            if (isAuthenticated !== false) {
+            if (isAuthenticatedRef.current !== false) {
+                isAuthenticatedRef.current = false;
                 setIsAuthenticated(false);
             }
+            hasLoadedDataRef.current = false;
             setHasLoadedData(false);
         } finally {
             if (loading) {
@@ -151,9 +158,9 @@ export default function AppNavigator(params) {
         if (!hasCompletedOnboarding) return 'Onboarding';
         return 'BottomTabs';
     };
-    
+
     return (
-        <Stack.Navigator 
+        <Stack.Navigator
             screenOptions={{
                 headerStyle: {
                     backgroundColor: colors.surface,
@@ -167,48 +174,56 @@ export default function AppNavigator(params) {
         >
             {(!isAuthenticated || !hasCompletedOnboarding) && (
                 <>
-                    <Stack.Screen 
-                        name="Login" 
-                        component={Login} 
-                        options={{ headerShown: false }} 
+                    <Stack.Screen
+                        name="Login"
+                        component={Login}
+                        options={{ headerShown: false }}
                     />
-                    <Stack.Screen 
-                        name="Register" 
-                        component={Register} 
-                        options={{ headerShown: false }} 
+                    <Stack.Screen
+                        name="Register"
+                        component={Register}
+                        options={{ headerShown: false }}
                     />
-                    <Stack.Screen 
-                        name="Onboarding" 
-                        component={Onboarding} 
-                        options={{ headerShown: false }} 
+                    <Stack.Screen
+                        name="Onboarding"
+                        component={Onboarding}
+                        options={{ headerShown: false }}
                     />
                 </>
             )}
-            
+
             {(isAuthenticated && hasCompletedOnboarding) && (
                 <>
-                    <Stack.Screen 
-                        name="BottomTabs" 
-                        component={MyTabs} 
-                        options={{ 
+                    <Stack.Screen
+                        name="BottomTabs"
+                        component={MyTabs}
+                        options={{
                             title: 'BudgetBuddy 💰',
-                            headerShown: true 
-                        }} 
+                            headerShown: true
+                        }}
                     />
 
-                    <Stack.Screen 
-                        name="Category" 
-                        component={require('../screens/Category').default} 
-                        options={{presentation: 'modal', headerShown: false}} 
+                    <Stack.Screen
+                        name="Category"
+                        component={require('../screens/Category').default}
+                        options={{ presentation: 'modal', headerShown: true }}
                     />
 
-                    <Stack.Screen 
-                        name="ExpenseDetails" 
-                        component={require('../screens/ExpenseDetails').default} 
+                    <Stack.Screen
+                        name="ExpenseDetails"
+                        component={require('../screens/ExpenseDetails').default}
                         options={{
                             title: 'Expense Details',
                             headerShown: true
-                        }} 
+                        }}
+                    />
+                    <Stack.Screen
+                        name="PDFExport"
+                        component={require('../screens/PDFExportScreen').default}
+                        options={{
+                            title: 'PDF Export',
+                            headerShown: true
+                        }}
                     />
                 </>
             )}

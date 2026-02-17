@@ -90,56 +90,160 @@ export function ExpenseProvider({ children }) {
     setBudgetPeriod('monthly');
     setPeriodStartDate(new Date().toISOString());
   };
-  
+
   // Add expense
-  const addExpense = (expense) => {
+  const addExpense = async (expense) => {
+    const tempId = getId();
     const newExpense = {
-      id: getId(),
+      id: tempId,
       title: expense.title,
       amount: parseFloat(expense.amount),
       category: expense.category.name,
-      date: getDate(),
+      date: expense.date || new Date().toISOString(),
       color: getCategoryColor(expense.category.color),
       icon: expense.category.icon,
     };
 
-    setExpenses([...expenses, newExpense]);
+    // Optimistic update
+    setExpenses(prev => [newExpense, ...prev]);
+
+    try {
+      const result = await expenseAPI.create(
+        newExpense.title,
+        newExpense.amount,
+        newExpense.category,
+        newExpense.icon,
+        newExpense.color,
+        newExpense.date
+      );
+
+      if (result.success) {
+        // Update with real ID from backend
+        setExpenses(prev => prev.map(exp =>
+          exp.id === tempId ? { ...exp, id: result.expenseId } : exp
+        ));
+      } else {
+        // Revert on failure
+        console.error('Failed to add expense:', result.message);
+        setExpenses(prev => prev.filter(exp => exp.id !== tempId));
+      }
+    } catch (error) {
+      console.error('Add expense error:', error);
+      setExpenses(prev => prev.filter(exp => exp.id !== tempId));
+    }
+  };
+
+  // Import multiple expenses
+  const importExpenses = async (newExpenses) => {
+    setIsLoading(true);
+    let successCount = 0;
+
+    try {
+      // Create all expenses in backend
+      // We process them sequentially to avoid overwhelming the server/rate limits
+      // or use Promise.all for speed if server handles it
+      const promises = newExpenses.map(exp =>
+        expenseAPI.create(
+          exp.title,
+          parseFloat(exp.amount),
+          exp.category.name,
+          exp.category.icon,
+          getCategoryColor(exp.category.color),
+          exp.date || new Date().toISOString()
+        )
+      );
+
+      const results = await Promise.all(promises);
+      successCount = results.filter(r => r.success).length;
+
+      // Reload all data to ensure sync and get correct IDs
+      await loadUserData();
+
+      return { success: true, count: successCount };
+    } catch (error) {
+      console.error('Import expenses error:', error);
+      return { success: false, error: error.message, count: successCount };
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Update expense
-  const updateExpense = (expenseId, updatedData) => {
-    setExpenses(expenses.map(expense => 
-      expense.id === expenseId 
+  const updateExpense = async (expenseId, updatedData) => {
+    // Optimistic update
+    const previousExpenses = [...expenses];
+    setExpenses(prev => prev.map(expense =>
+      expense.id === expenseId
         ? { ...expense, ...updatedData }
         : expense
     ));
+
+    try {
+      const expenseToUpdate = expenses.find(e => e.id === expenseId);
+      if (!expenseToUpdate) return;
+
+      const merged = { ...expenseToUpdate, ...updatedData };
+
+      const result = await expenseAPI.update(
+        expenseId,
+        merged.title,
+        merged.amount,
+        merged.category,
+        merged.icon,
+        merged.color,
+        merged.date
+      );
+
+      if (!result.success) {
+        console.error('Failed to update expense:', result.message);
+        setExpenses(previousExpenses);
+      }
+    } catch (error) {
+      console.error('Update expense error:', error);
+      setExpenses(previousExpenses);
+    }
   };
 
   // Delete expense
-  const deleteExpense = (expenseId) => {
-    setExpenses(expenses.filter(expense => expense.id !== expenseId));
+  const deleteExpense = async (expenseId) => {
+    // Optimistic delete
+    const previousExpenses = [...expenses];
+    setExpenses(prev => prev.filter(expense => expense.id !== expenseId));
+
+    try {
+      const result = await expenseAPI.delete(expenseId);
+
+      if (!result.success) {
+        // Revert
+        console.error('Failed to delete expense:', result.message);
+        setExpenses(previousExpenses);
+      }
+    } catch (error) {
+      console.error('Delete expense error:', error);
+      setExpenses(previousExpenses);
+    }
   };
 
   // Add custom category
   const addCustomCategory = (category) => {
     // Check if category already exists in custom categories
     const exists = customCategories.some(cat => cat.name.toLowerCase() === category.name.toLowerCase());
-    
+
     if (exists) {
       return { success: false, message: 'Category already exists' };
     }
-    
+
     setCustomCategories([...customCategories, category]);
     return { success: true, message: 'Category added successfully' };
   };
 
   // Add multiple categories at once (for onboarding)
   const addMultipleCategories = (categoriesArray) => {
-    const validCategories = categoriesArray.filter(cat => 
-      cat.name && cat.name.trim() && 
+    const validCategories = categoriesArray.filter(cat =>
+      cat.name && cat.name.trim() &&
       !customCategories.some(existing => existing.name.toLowerCase() === cat.name.toLowerCase())
     );
-    
+
     setCustomCategories([...customCategories, ...validCategories]);
     return { success: true, count: validCategories.length };
   };
@@ -149,7 +253,7 @@ export function ExpenseProvider({ children }) {
     try {
       // Check if category has expenses
       const categoryExpenses = expenses.filter(exp => exp.category === categoryName);
-      
+
       if (categoryExpenses.length > 0) {
         return {
           success: false,
@@ -161,19 +265,19 @@ export function ExpenseProvider({ children }) {
 
       // Delete from backend
       const result = await categoryAPI.delete(categoryName);
-      
+
       if (result.success) {
         // Remove from local state
         setCustomCategories(customCategories.filter(cat => cat.name !== categoryName));
-        
+
         // Remove category budget
         const newBudgets = { ...categoryBudgets };
         delete newBudgets[categoryName];
         setCategoryBudgets(newBudgets);
-        
+
         return { success: true, message: 'Category deleted successfully' };
       }
-      
+
       return result;
     } catch (error) {
       console.error('Delete category error:', error);
@@ -204,13 +308,13 @@ export function ExpenseProvider({ children }) {
   // Set budget for a specific category
   const setCategoryBudget = async (categoryName, amount) => {
     const budgetAmount = parseFloat(amount) || 0;
-    
+
     // Update local state immediately
     setCategoryBudgets(prev => ({
       ...prev,
       [categoryName]: budgetAmount
     }));
-    
+
     // Sync with backend
     try {
       await categoryAPI.updateBudget(categoryName, budgetAmount);
@@ -238,7 +342,7 @@ export function ExpenseProvider({ children }) {
     // Reset period start date when changing period
     const newStartDate = new Date().toISOString();
     setPeriodStartDate(newStartDate);
-    
+
     // Save to backend
     try {
       await userAPI.updateBudgetPeriod(period, newStartDate);
@@ -252,7 +356,7 @@ export function ExpenseProvider({ children }) {
   const getPeriodStartDate = () => {
     const now = new Date();
     const start = new Date(periodStartDate);
-    
+
     if (budgetPeriod === 'weekly') {
       // Get start of current week (Monday)
       const dayOfWeek = now.getDay();
@@ -298,7 +402,7 @@ export function ExpenseProvider({ children }) {
     const spent = getCategorySpending(categoryName);
     const remaining = budget - spent;
     const percentage = budget > 0 ? (spent / budget) * 100 : 0;
-    
+
     return {
       budget,
       spent,
@@ -309,9 +413,10 @@ export function ExpenseProvider({ children }) {
   };
 
   return (
-    <ExpenseContext.Provider value={{ 
-      expenses, 
+    <ExpenseContext.Provider value={{
+      expenses,
       addExpense,
+      importExpenses,
       updateExpense,
       deleteExpense,
       totalBudget,
