@@ -8,7 +8,7 @@ export const ExpenseContext = createContext();
 
 export function ExpenseProvider({ children }) {
   const [expenses, setExpenses] = useState([]);
-  const [totalBudget, setTotalBudget] = useState(0);
+  const [baseBudget, setBaseBudget] = useState(0); // Renamed from totalBudget to baseBudget
   const [categoryBudgets, setCategoryBudgets] = useState({});
   const [customCategories, setCustomCategories] = useState([]);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
@@ -16,6 +16,49 @@ export function ExpenseProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false);
   const [budgetPeriod, setBudgetPeriod] = useState('monthly'); // 'weekly' or 'monthly'
   const [periodStartDate, setPeriodStartDate] = useState(new Date().toISOString());
+
+  // Get period start date based on budget period
+  const getPeriodStartDate = () => {
+    const now = new Date();
+    // const start = new Date(periodStartDate);
+
+    if (budgetPeriod === 'weekly') {
+      // Get start of current week (Monday)
+      const dayOfWeek = now.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() + diff);
+      weekStart.setHours(0, 0, 0, 0);
+      return weekStart;
+    } else {
+      // Get start of current month
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      monthStart.setHours(0, 0, 0, 0);
+      return monthStart;
+    }
+  };
+
+  // Helper to determine income
+  const isIncome = (expense) => {
+    if (expense.type === 'credit') return true;
+    if (expense.type === 'debit') return false;
+    const cat = expense.category?.toLowerCase() || '';
+    return cat === 'income' || cat === 'salary' || cat === 'deposit' || cat === 'credit' || (expense.category === 'Income');
+  };
+
+  // Calculate Total Income for current period (Added Funds)
+  const getIncomeForCurrentPeriod = () => {
+    const periodStart = getPeriodStartDate();
+    return expenses
+      .filter(exp => {
+        const expenseDate = new Date(exp.date);
+        return expenseDate >= periodStart && isIncome(exp);
+      })
+      .reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+  };
+
+  // Effective Total Budget = Base (DB) + Income (Current Period)
+  const totalBudget = baseBudget + getIncomeForCurrentPeriod();
 
   // Load all user data from backend
   const loadUserData = async () => {
@@ -30,7 +73,7 @@ export function ExpenseProvider({ children }) {
           email: user.email,
           phone: user.phone
         });
-        setTotalBudget(user.totalBudget || 0);
+        setBaseBudget(user.totalBudget || 0);
         setHasCompletedOnboarding(user.hasCompletedOnboarding || false);
         setBudgetPeriod(user.budgetPeriod || 'monthly');
         setPeriodStartDate(user.periodStartDate || new Date().toISOString());
@@ -64,7 +107,8 @@ export function ExpenseProvider({ children }) {
           category: exp.category,
           date: exp.date,
           color: exp.color,
-          icon: exp.icon
+          icon: exp.icon,
+          type: exp.type || 'debit' // Load type
         }));
         setExpenses(exps);
       }
@@ -82,7 +126,7 @@ export function ExpenseProvider({ children }) {
   // Clear all data (for logout)
   const clearAllData = () => {
     setExpenses([]);
-    setTotalBudget(0);
+    setBaseBudget(0);
     setCategoryBudgets({});
     setCustomCategories([]);
     setHasCompletedOnboarding(false);
@@ -102,6 +146,7 @@ export function ExpenseProvider({ children }) {
       date: expense.date || new Date().toISOString(),
       color: getCategoryColor(expense.category.color),
       icon: expense.category.icon,
+      type: expense.type || 'debit'
     };
 
     // Optimistic update
@@ -114,7 +159,8 @@ export function ExpenseProvider({ children }) {
         newExpense.category,
         newExpense.icon,
         newExpense.color,
-        newExpense.date
+        newExpense.date,
+        newExpense.type
       );
 
       if (result.success) {
@@ -139,9 +185,6 @@ export function ExpenseProvider({ children }) {
     let successCount = 0;
 
     try {
-      // Create all expenses in backend
-      // We process them sequentially to avoid overwhelming the server/rate limits
-      // or use Promise.all for speed if server handles it
       const promises = newExpenses.map(exp =>
         expenseAPI.create(
           exp.title,
@@ -149,7 +192,8 @@ export function ExpenseProvider({ children }) {
           exp.category.name,
           exp.category.icon,
           getCategoryColor(exp.category.color),
-          exp.date || new Date().toISOString()
+          exp.date || new Date().toISOString(),
+          exp.type || 'debit'
         )
       );
 
@@ -191,7 +235,8 @@ export function ExpenseProvider({ children }) {
         merged.category,
         merged.icon,
         merged.color,
-        merged.date
+        merged.date,
+        merged.type // Include type in update
       );
 
       if (!result.success) {
@@ -214,19 +259,29 @@ export function ExpenseProvider({ children }) {
       const result = await expenseAPI.delete(expenseId);
 
       if (!result.success) {
-        // Revert
+        // If document not found, it's already deleted on server, so don't revert
+        if (result.message && (result.message.includes('could not be found') || result.message.includes('404'))) {
+          console.warn('Expense not found on server, keeping local deletion:', expenseId);
+          return;
+        }
+
+        // Revert on other failures
         console.error('Failed to delete expense:', result.message);
         setExpenses(previousExpenses);
       }
     } catch (error) {
       console.error('Delete expense error:', error);
+      // Check for 404 in catch block too if API throws directly
+      if (error.message && (error.message.includes('could not be found') || error.message.includes('404'))) {
+        console.warn('Expense not found on server, keeping local deletion:', expenseId);
+        return;
+      }
       setExpenses(previousExpenses);
     }
   };
 
   // Add custom category
   const addCustomCategory = (category) => {
-    // Check if category already exists in custom categories
     const exists = customCategories.some(cat => cat.name.toLowerCase() === category.name.toLowerCase());
 
     if (exists) {
@@ -237,7 +292,7 @@ export function ExpenseProvider({ children }) {
     return { success: true, message: 'Category added successfully' };
   };
 
-  // Add multiple categories at once (for onboarding)
+  // Add multiple categories
   const addMultipleCategories = (categoriesArray) => {
     const validCategories = categoriesArray.filter(cat =>
       cat.name && cat.name.trim() &&
@@ -251,7 +306,6 @@ export function ExpenseProvider({ children }) {
   // Delete category
   const deleteCategory = async (categoryName) => {
     try {
-      // Check if category has expenses
       const categoryExpenses = expenses.filter(exp => exp.category === categoryName);
 
       if (categoryExpenses.length > 0) {
@@ -263,21 +317,15 @@ export function ExpenseProvider({ children }) {
         };
       }
 
-      // Delete from backend
       const result = await categoryAPI.delete(categoryName);
 
       if (result.success) {
-        // Remove from local state
         setCustomCategories(customCategories.filter(cat => cat.name !== categoryName));
-
-        // Remove category budget
         const newBudgets = { ...categoryBudgets };
         delete newBudgets[categoryName];
         setCategoryBudgets(newBudgets);
-
         return { success: true, message: 'Category deleted successfully' };
       }
-
       return result;
     } catch (error) {
       console.error('Delete category error:', error);
@@ -290,32 +338,27 @@ export function ExpenseProvider({ children }) {
     setUserData(user);
   };
 
-  // Get all categories (only custom if onboarding completed, otherwise default + custom)
+  // Get all categories
   const getAllCategories = () => {
-    // After onboarding, only show categories created by user
     if (hasCompletedOnboarding) {
       return customCategories;
     }
-    // Before onboarding, show defaults for backwards compatibility
     return [...DEFAULT_CATEGORIES, ...customCategories];
   };
 
-  // Mark onboarding as complete
+  // Complete onboarding
   const completeOnboarding = () => {
     setHasCompletedOnboarding(true);
   };
 
-  // Set budget for a specific category
+  // Set category budget
   const setCategoryBudget = async (categoryName, amount) => {
     const budgetAmount = parseFloat(amount) || 0;
-
-    // Update local state immediately
     setCategoryBudgets(prev => ({
       ...prev,
       [categoryName]: budgetAmount
     }));
 
-    // Sync with backend
     try {
       await categoryAPI.updateBudget(categoryName, budgetAmount);
     } catch (error) {
@@ -323,7 +366,7 @@ export function ExpenseProvider({ children }) {
     }
   };
 
-  // Set multiple category budgets at once (for onboarding)
+  // Set batch category budgets
   const setBatchCategoryBudgets = (budgetsObject) => {
     setCategoryBudgets(prev => ({
       ...prev,
@@ -331,45 +374,32 @@ export function ExpenseProvider({ children }) {
     }));
   };
 
-  // Set total budget
+  // Set total budget (Base)
   const setBudget = (amount) => {
-    setTotalBudget(parseFloat(amount) || 0);
-  };
+    const newBudget = parseFloat(amount) || 0;
+    setBaseBudget(newBudget);
 
-  // Set budget period
-  const updateBudgetPeriod = async (period) => {
-    setBudgetPeriod(period);
-    // Reset period start date when changing period
-    const newStartDate = new Date().toISOString();
-    setPeriodStartDate(newStartDate);
-
-    // Save to backend
     try {
-      await userAPI.updateBudgetPeriod(period, newStartDate);
-      console.log('✅ Budget period saved to backend');
-    } catch (error) {
-      console.error('❌ Failed to save budget period:', error);
+      if (userAPI.updateBudget) {
+        userAPI.updateBudget(newBudget);
+      } else {
+        console.warn("userAPI.updateBudget not found");
+      }
+    } catch (e) {
+      console.error("Failed to save budget", e);
     }
   };
 
-  // Get period start date based on budget period
-  const getPeriodStartDate = () => {
-    const now = new Date();
-    const start = new Date(periodStartDate);
+  // Update budget period
+  const updateBudgetPeriod = async (period) => {
+    setBudgetPeriod(period);
+    const newStartDate = new Date().toISOString();
+    setPeriodStartDate(newStartDate);
 
-    if (budgetPeriod === 'weekly') {
-      // Get start of current week (Monday)
-      const dayOfWeek = now.getDay();
-      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() + diff);
-      weekStart.setHours(0, 0, 0, 0);
-      return weekStart;
-    } else {
-      // Get start of current month
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      monthStart.setHours(0, 0, 0, 0);
-      return monthStart;
+    try {
+      await userAPI.updateBudgetPeriod(period, newStartDate);
+    } catch (error) {
+      console.error('❌ Failed to save budget period:', error);
     }
   };
 
@@ -382,7 +412,7 @@ export function ExpenseProvider({ children }) {
     });
   };
 
-  // Get spending by category for current period
+  // Get spending by category
   const getCategorySpending = (categoryName, useCurrentPeriod = false) => {
     const expensesToUse = useCurrentPeriod ? getExpensesForCurrentPeriod() : expenses;
     return expensesToUse
@@ -396,7 +426,7 @@ export function ExpenseProvider({ children }) {
     return expensesToUse.reduce((sum, exp) => sum + exp.amount, 0);
   };
 
-  // Get budget status for a category
+  // Get budget status
   const getCategoryBudgetStatus = (categoryName) => {
     const budget = categoryBudgets[categoryName] || 0;
     const spent = getCategorySpending(categoryName);
@@ -421,6 +451,7 @@ export function ExpenseProvider({ children }) {
       deleteExpense,
       totalBudget,
       setBudget,
+      baseBudget,
       budgetPeriod,
       updateBudgetPeriod,
       getPeriodStartDate,

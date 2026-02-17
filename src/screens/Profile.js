@@ -24,7 +24,8 @@ const Profile = ({ navigation }) => {
     userData,
     clearAllData,
     expenses,
-    importExpenses
+    importExpenses,
+    addExpense
   } = useExpense();
 
   const { isDarkMode, toggleTheme, colors } = useTheme();
@@ -48,19 +49,38 @@ const Profile = ({ navigation }) => {
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isExportingCSV, setIsExportingCSV] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isAddingFunds, setIsAddingFunds] = useState(false);
 
   const handleSetBudget = () => {
     const amount = parseFloat(budgetInput);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert("Invalid Amount", "Please enter a valid budget amount");
+      Alert.alert("Invalid Amount", "Please enter a valid amount");
       return;
+    }
+
+    let newTotal = amount;
+    if (isAddingFunds) {
+      newTotal = totalBudget + amount;
+
+      // Track as "Income" transaction
+      addExpense({
+        title: 'Budget Added',
+        amount: amount,
+        category: {
+          name: 'Income',
+          icon: '💰',
+          color: '#10B981' // Emerald Green
+        },
+        date: new Date().toISOString(),
+        type: 'credit' // Flag as credit as requested
+      });
     }
 
     // Calculate total of all category budgets
     const totalCategoryBudgets = Object.values(categoryBudgets).reduce((sum, budget) => sum + budget, 0);
 
     // Ensure new total budget is not less than sum of category budgets
-    if (amount < totalCategoryBudgets) {
+    if (newTotal < totalCategoryBudgets) {
       Alert.alert(
         "Budget Too Low",
         `Your total budget cannot be less than your allocated category budgets.\n\nCategory Budgets Total: ₹${totalCategoryBudgets.toFixed(2)}\n\nPlease set a budget ≥ ₹${totalCategoryBudgets.toFixed(2)} or reduce your category budgets first.`
@@ -68,14 +88,19 @@ const Profile = ({ navigation }) => {
       return;
     }
 
-    setBudget(amount);
+    setBudget(newTotal);
     setShowEditBudgetModal(false);
-    Alert.alert("Success", `Monthly budget set to ₹${amount.toFixed(2)}`);
+    setIsAddingFunds(false);
+    Alert.alert("Success", isAddingFunds
+      ? `Added ₹${amount.toFixed(2)} to budget. New Total: ₹${newTotal.toFixed(2)}`
+      : `Monthly budget set to ₹${newTotal.toFixed(2)}`
+    );
   };
 
   const handleEditBudget = () => {
     setBudgetInput(totalBudget.toString());
     setShowEditBudgetModal(true);
+    setIsAddingFunds(false);
   };
 
   const handleSetCategoryBudget = (categoryName) => {
@@ -313,14 +338,34 @@ const Profile = ({ navigation }) => {
                 <Text style={[tailwind`text-2xl font-bold`, { color: colors.textSecondary }]}>Not Set</Text>
               )}
             </View>
-            <Pressable
-              style={[tailwind`px-5 py-2.5 rounded-xl shadow-sm`, { backgroundColor: colors.primary }]}
-              onPress={totalBudget > 0 ? handleEditBudget : () => setShowEditBudgetModal(true)}
-            >
-              <Text style={tailwind`text-white font-bold text-sm`}>
-                {totalBudget > 0 ? 'Edit' : 'Set'}
-              </Text>
-            </Pressable>
+            <View style={tailwind`flex-row gap-2`}>
+              <Pressable
+                style={[tailwind`px-4 py-2.5 rounded-xl shadow-sm`, { backgroundColor: colors.success }]}
+                onPress={() => {
+                  setBudgetInput('');
+                  setShowEditBudgetModal(true);
+                  // Use a flag for "adding" vs "setting"
+                  // But for simplicity, let's just make a new modal or specialized state usage
+                  // Reusing modal but we need to know if we are adding or setting
+                  // Let's add a new state `isAddingFunds`
+                  setIsAddingFunds(true);
+                }}
+              >
+                <Text style={tailwind`text-white font-bold text-sm`}>+ Add</Text>
+              </Pressable>
+
+              <Pressable
+                style={[tailwind`px-4 py-2.5 rounded-xl shadow-sm`, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  setIsAddingFunds(false);
+                  handleEditBudget();
+                }}
+              >
+                <Text style={tailwind`text-white font-bold text-sm`}>
+                  {totalBudget > 0 ? 'Edit' : 'Set'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
           {totalBudget > 0 && (
@@ -604,11 +649,11 @@ const Profile = ({ navigation }) => {
           <View style={[tailwind`flex-1 justify-end`, { backgroundColor: colors.overlay }]}>
             <View style={[tailwind`rounded-t-3xl p-6`, { backgroundColor: colors.surface }]}>
               <Text style={[tailwind`text-2xl font-bold mb-4`, { color: colors.text }]}>
-                {totalBudget > 0 ? 'Edit Budget' : 'Set Budget'}
+                {isAddingFunds ? 'Add Funds' : (totalBudget > 0 ? 'Edit Budget' : 'Set Budget')}
               </Text>
 
               <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>
-                Monthly Budget
+                {isAddingFunds ? 'Amount to Add' : 'Monthly Budget'}
               </Text>
               <TextInput
                 placeholder="₹0.00"

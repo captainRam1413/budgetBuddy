@@ -1,6 +1,6 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, Platform, ActivityIndicator, View } from 'react-native';
+import { Text, Platform, ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
 import Home from '../screens/Home';
@@ -14,44 +14,96 @@ import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
 import { authAPI } from '../services/appwriteAPI';
 
-const Tab = createBottomTabNavigator();
+const Tab = createMaterialTopTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function MyTabs() {
-    const { colors, isDarkMode } = useTheme();
+function CustomTabBar({ state, descriptors, navigation }) {
+    const { colors } = useTheme();
     const insets = useSafeAreaInsets();
 
     return (
+        <View style={{
+            flexDirection: 'row',
+            backgroundColor: colors.surface,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            paddingBottom: Math.max(insets.bottom, 10),
+            paddingTop: 10,
+            height: 65 + Math.max(insets.bottom, 0),
+            elevation: 10,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+        }}>
+            {state.routes.map((route, index) => {
+                const { options } = descriptors[route.key];
+                const label = options.tabBarLabel !== undefined
+                    ? options.tabBarLabel
+                    : options.title !== undefined
+                        ? options.title
+                        : route.name;
+
+                const isFocused = state.index === index;
+
+                const onPress = () => {
+                    const event = navigation.emit({
+                        type: 'tabPress',
+                        target: route.key,
+                        canPreventDefault: true,
+                    });
+
+                    if (!isFocused && !event.defaultPrevented) {
+                        navigation.navigate({ name: route.name, merge: true });
+                    }
+                };
+
+                const Icon = options.tabBarIcon;
+
+                return (
+                    <TouchableOpacity
+                        key={route.key}
+                        accessibilityRole="button"
+                        accessibilityState={isFocused ? { selected: true } : {}}
+                        onPress={onPress}
+                        activeOpacity={0.7}
+                        style={{ flex: 1, alignItems: 'center' }}
+                    >
+                        {Icon && <Icon focused={isFocused} color={isFocused ? colors.primary : colors.textSecondary} />}
+                        <Text style={{
+                            color: isFocused ? colors.primary : colors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: '600',
+                            marginTop: 4
+                        }}>
+                            {label}
+                        </Text>
+                    </TouchableOpacity>
+                );
+            })}
+        </View>
+    );
+}
+
+function MyTabs() {
+    const { colors } = useTheme();
+
+    return (
         <Tab.Navigator
+            tabBarPosition="bottom"
+            tabBar={props => <CustomTabBar {...props} />}
             screenOptions={{
-                headerShown: false,
-                tabBarStyle: {
-                    backgroundColor: colors.surface,
-                    borderTopColor: colors.border,
-                    borderTopWidth: 1,
-                    height: 60 + insets.bottom,
-                    paddingBottom: insets.bottom,
-                    paddingTop: 8,
-                    elevation: 8,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: -2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 8,
-                },
-                tabBarActiveTintColor: colors.primary,
-                tabBarInactiveTintColor: colors.textSecondary,
-                tabBarLabelStyle: {
-                    fontSize: 12,
-                    fontWeight: '600',
-                },
+                swipeEnabled: true,
+                animationEnabled: true,
             }}
         >
             <Tab.Screen
                 name="Home"
                 component={Home}
                 options={{
+                    tabBarLabel: "Home",
                     tabBarIcon: ({ focused, color }) => (
-                        <Text style={{ fontSize: 24 }}>{focused ? '🏠' : '🏡'}</Text>
+                        <Text style={{ fontSize: 22, color }}>{focused ? '🏠' : '🏡'}</Text>
                     ),
                 }}
             />
@@ -59,8 +111,9 @@ function MyTabs() {
                 name="Create"
                 component={Create}
                 options={{
+                    tabBarLabel: "Create",
                     tabBarIcon: ({ focused, color }) => (
-                        <Text style={{ fontSize: 24 }}>{focused ? '➕' : '＋'}</Text>
+                        <Text style={{ fontSize: 24, color }}>{focused ? '➕' : '＋'}</Text>
                     ),
                 }}
             />
@@ -68,8 +121,9 @@ function MyTabs() {
                 name="Insights"
                 component={Insights}
                 options={{
+                    tabBarLabel: "Insights",
                     tabBarIcon: ({ focused, color }) => (
-                        <Text style={{ fontSize: 24 }}>{focused ? '📊' : '📈'}</Text>
+                        <Text style={{ fontSize: 22, color }}>{focused ? '📊' : '📈'}</Text>
                     ),
                 }}
             />
@@ -77,8 +131,9 @@ function MyTabs() {
                 name="Profile"
                 component={Profile}
                 options={{
+                    tabBarLabel: "Profile",
                     tabBarIcon: ({ focused, color }) => (
-                        <Text style={{ fontSize: 24 }}>{focused ? '👤' : '👥'}</Text>
+                        <Text style={{ fontSize: 22, color }}>{focused ? '👤' : '👥'}</Text>
                     ),
                 }}
             />

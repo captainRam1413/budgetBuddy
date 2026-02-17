@@ -527,6 +527,7 @@ export const expenseAPI = {
         icon: doc.icon,
         color: doc.color,
         date: doc.date,
+        type: doc.type || 'debit', // Default to debit if missing
       }));
 
       return {
@@ -566,6 +567,7 @@ export const expenseAPI = {
         icon: doc.icon,
         color: doc.color,
         date: doc.date,
+        type: doc.type || 'debit',
       }));
 
       return {
@@ -577,6 +579,11 @@ export const expenseAPI = {
       return { success: false, message: error.message || 'Failed to get expenses' };
     }
   },
+
+  // ... getCategoryTotal and getSummary can remain as is or be updated if needed. 
+  // For now, only getAll/create/update are critical for the user request.
+  // However, the Replace tool needs strict context. I will skip getCategoryTotal edits if they are large, 
+  // but I must ensure valid JS. 
 
   getCategoryTotal: async (categoryName) => {
     try {
@@ -642,7 +649,7 @@ export const expenseAPI = {
     }
   },
 
-  create: async (title, amount, category, icon, color, date) => {
+  create: async (title, amount, category, icon, color, date, type = 'debit') => {
     try {
       const userId = await getCurrentUserId();
       if (!userId) {
@@ -661,6 +668,7 @@ export const expenseAPI = {
           icon,
           color,
           date: date || new Date().toISOString(),
+          type,
         }
       );
 

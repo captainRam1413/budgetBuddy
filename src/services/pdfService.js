@@ -13,46 +13,56 @@ import * as DocumentPicker from 'expo-document-picker';
 /**
  * Generate HTML content for the expense report matching the Day-To-Day Expenses PDF format
  */
+/**
+ * Generate HTML content for the expense report with a modern, beautiful design
+ */
 const generateExpenseReportHTML = ({ expenses, totalBudget, budgetPeriod, userData, monthName, year }) => {
-  const now = new Date();
-
-  // Sort expenses by date (oldest first for the report usually, but screenshot shows chronological?)
-  // Screenshot shows data from 07-02-2024 to 29-02-2024.
+  // Sort expenses by date
   const sortedExpenses = [...expenses].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  let totalIncome = 0;
+  // Use Total Budget as the Total Income for the report
+  const totalIncome = totalBudget || 0;
   let totalExpense = 0;
 
   // Helper to determine if an expense is income
   const isIncome = (expense) => {
-    const cat = expense.category.toLowerCase();
-    return cat === 'income' || cat === 'salary' || cat === 'deposit' || cat === 'credit';
+    if (expense.type === 'credit') return true;
+    if (expense.type === 'debit') return false;
+    const cat = expense.category?.toLowerCase() || '';
+    return cat === 'income' || cat === 'salary' || cat === 'deposit' || cat === 'credit' || (expense.category === 'Income');
   };
+  // Calculate actual total expense (excluding income transactions)
+  sortedExpenses.forEach(exp => {
+    if (!isIncome(exp)) {
+      totalExpense += exp.amount;
+    }
+  });
+
+  const balance = totalIncome - totalExpense;
+  const isNegative = balance < 0;
 
   const expenseRows = sortedExpenses.map((exp, index) => {
     const isCredit = isIncome(exp);
     const amount = exp.amount;
-
-    if (isCredit) totalIncome += amount;
-    else totalExpense += amount;
-
-    const formattedDate = new Date(exp.date).toLocaleDateString('en-GB', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    }).replace(/\//g, '-'); // Format: DD-MM-YYYY
+    const date = new Date(exp.date).toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
 
     return `
-      <tr style="background-color: ${index % 2 === 0 ? '#E0F2F1' : '#ffffff'};">
-        <td style="padding: 4px; border: 1px solid #000;">${formattedDate}</td>
-        <td style="padding: 4px; border: 1px solid #000;">${exp.title}</td>
-        <td style="padding: 4px; border: 1px solid #000;">${exp.category}</td>
-        <td style="padding: 4px; border: 1px solid #000;">${exp.account || 'Main'}</td>
-        <td style="padding: 4px; border: 1px solid #000; text-align: right;">${isCredit ? amount.toFixed(2) : ''}</td>
-        <td style="padding: 4px; border: 1px solid #000; text-align: right;">${!isCredit ? amount.toFixed(2) : ''}</td>
+      <tr style="background-color: ${index % 2 === 0 ? '#fafafa' : '#ffffff'}; border-bottom: 1px solid #eee;">
+        <td style="padding: 12px 16px; color: #555;">${date}</td>
+        <td style="padding: 12px 16px; font-weight: 500; color: #333;">${exp.title}</td>
+        <td style="padding: 12px 16px;">
+          <span style="background-color: ${isCredit ? '#d1fae5' : '#f3f4f6'}; color: ${isCredit ? '#065f46' : '#4b5563'}; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">
+            ${exp.category}
+          </span>
+        </td>
+        <td style="padding: 12px 16px; text-align: right; font-weight: bold; color: ${isCredit ? '#10b981' : '#ef4444'};">
+          ${isCredit ? '+ ' : ''}₹${amount.toFixed(2)}
+        </td>
       </tr>
     `;
   }).join('');
-
-  const balance = totalIncome - totalExpense;
 
   return `
     <!DOCTYPE html>
@@ -60,51 +70,96 @@ const generateExpenseReportHTML = ({ expenses, totalBudget, budgetPeriod, userDa
     <head>
       <meta charset="utf-8">
       <style>
-        @page { margin: 20px; size: A4 portrait; }
-        body { font-family: sans-serif; font-size: 10px; }
-        h1, h2, h3 { text-align: center; margin: 5px 0; color: #00897B; }
-        .sub-header { text-align: center; color: #6A1B9A; margin-bottom: 20px; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background-color: #00897B; color: white; padding: 5px; border: 1px solid #000; font-weight: bold; }
-        td { padding: 4px; border: 1px solid #000; font-size: 10px; }
-        .footer-row td { font-weight: bold; background-color: #E0F2F1; }
-        .balance-row td { font-weight: bold; color: #00897B; text-align: right; background-color: #E0F2F1; }
-        .red-text { color: red; }
-        .green-text { color: green; }
+        @page { margin: 0; size: A4 portrait; }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; margin: 0; padding: 0; color: #333; -webkit-print-color-adjust: exact; }
+        .header {
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          color: white;
+          padding: 40px 30px;
+          border-bottom-left-radius: 30px;
+          border-bottom-right-radius: 30px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          margin-bottom: 30px;
+        }
+        .header-content { display: flex; justify-content: space-between; align-items: center; }
+        .title { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
+        .subtitle { font-size: 14px; opacity: 0.9; margin-top: 5px; font-weight: 500; }
+        .user-info { text-align: right; }
+        .user-name { font-size: 18px; font-weight: 700; }
+        .report-date { font-size: 12px; opacity: 0.8; margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .container { padding: 0 30px 40px 30px; }
+        
+        .summary-cards { display: flex; gap: 20px; margin-bottom: 30px; }
+        .card { flex: 1; padding: 20px; border-radius: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+        .card-value { font-size: 24px; font-weight: 800; color: #333; }
+        
+        .bg-white { background: white; border: 1px solid #eee; }
+        .text-green { color: #10b981; }
+        .text-red { color: #ef4444; }
+        
+        .table-container { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #f0f0f0; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8fafc; text-align: left; padding: 16px; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; }
+        
+        .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #94a3b8; font-size: 10px; }
       </style>
     </head>
     <body>
-      <h3>Day to Day Expenses</h3>
-      <div class="sub-header">${userData.name || 'User'}</div>
-      
-      <h3 style="color: black; font-size: 12px; margin-top: 10px;">${monthName} ${year}</h3>
+      <div class="header">
+        <div class="header-content">
+          <div>
+            <h1 class="title">Expense Report</h1>
+            <div class="subtitle">BudgetBuddy Financial Overview</div>
+          </div>
+          <div class="user-info">
+            <div class="user-name">${userData.name || 'User'}</div>
+            <div class="report-date">${monthName} ${year}</div>
+          </div>
+        </div>
+      </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 12%;">Date</th>
-            <th style="width: 30%;">Description</th>
-            <th style="width: 15%;">Category</th>
-            <th style="width: 15%;">Account</th>
-            <th style="width: 14%;">Income (Credit)</th>
-            <th style="width: 14%;">Expense (Debit)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Expense Rows -->
-          ${expenseRows}
-        </tbody>
-        <tfoot>
-          <tr class="footer-row">
-            <td colspan="4" style="text-align: right;">Total</td>
-            <td style="text-align: right; color: green;">${totalIncome.toFixed(2)}</td>
-            <td style="text-align: right; color: red;">${totalExpense.toFixed(2)}</td>
-          </tr>
-          <tr class="balance-row">
-             <td colspan="6">Balance = ₹${balance.toFixed(2)}</td>
-          </tr>
-        </tfoot>
-      </table>
+      <div class="container">
+        <!-- Summary Section -->
+        <div class="summary-cards">
+          <div class="card bg-white">
+            <div class="card-label">Total Budget</div>
+            <div class="card-value text-green">₹${totalIncome.toFixed(2)}</div>
+          </div>
+          <div class="card bg-white">
+            <div class="card-label">Total Spent</div>
+            <div class="card-value text-red">₹${totalExpense.toFixed(2)}</div>
+          </div>
+          <div class="card bg-white">
+            <div class="card-label">Remaining Balance</div>
+            <div class="card-value" style="color: ${isNegative ? '#ef4444' : '#10b981'}">
+              ₹${Math.abs(balance).toFixed(2)} ${isNegative ? '(Over)' : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 20%">Date</th>
+                <th style="width: 35%">Description</th>
+                <th style="width: 20%">Category</th>
+                <th style="width: 25%; text-align: right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${expenseRows.length > 0 ? expenseRows : '<tr><td colspan="4" style="padding: 30px; text-align: center; color: #999;">No transactions found for this period.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="footer">
+          Generated by BudgetBuddy • ${new Date().toLocaleDateString()} • Your Personal Finance Companion
+        </div>
+      </div>
     </body>
     </html>
   `;
