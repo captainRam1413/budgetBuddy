@@ -206,15 +206,16 @@ const Home = ({ navigation, route }) => {
           </Text>
 
           {/* Progress Bar */}
-          <View style={[tailwind`h-3 rounded-full overflow-hidden mb-3`, { backgroundColor: colors.borderLight }]}>
-            <View
-              style={[
-                tailwind`h-full rounded-full`,
-                {
-                  width: `${Math.min(budgetPercentage, 100)}%`,
-                  backgroundColor: budgetPercentage > 90 ? colors.error : budgetPercentage > 70 ? colors.warning : colors.success
-                }
-              ]}
+          <View style={[tailwind`h-4 rounded-full overflow-hidden mb-4`, { backgroundColor: colors.borderLight }]}>
+            <LinearGradient
+              colors={budgetPercentage > 90 ? [colors.error, '#EF4444'] : budgetPercentage > 70 ? [colors.warning, '#F59E0B'] : [colors.success, '#10B981']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                width: `${Math.min(budgetPercentage, 100)}%`,
+                height: '100%',
+                borderRadius: 20
+              }}
             />
           </View>
 
@@ -248,21 +249,45 @@ const Home = ({ navigation, route }) => {
       )}
 
       {/* Action Buttons */}
-      <View style={tailwind`px-5 mb-5 flex-row gap-3`}>
+      <View style={tailwind`px-5 mb-6 flex-row gap-4`}>
         <Pressable
-          style={[tailwind`flex-1 py-5 rounded-2xl shadow-lg flex-row items-center justify-center`, { backgroundColor: colors.primary }]}
+          style={({ pressed }) => [
+            tailwind`flex-1 rounded-2xl shadow-lg overflow-hidden`,
+            { transform: [{ scale: pressed ? 0.98 : 1 }] }
+          ]}
           onPress={() => setShowPaymentModal(true)}
         >
-          <Text style={tailwind`text-white text-2xl mr-2`}>💳</Text>
-          <Text style={tailwind`text-white font-bold text-base`}>Pay Now</Text>
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark || '#4f46e5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={tailwind`py-4 flex-row items-center justify-center`}
+          >
+            <View style={[tailwind`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+              <Text style={tailwind`text-xl`}>💳</Text>
+            </View>
+            <Text style={tailwind`text-white font-bold text-lg`}>Pay Now</Text>
+          </LinearGradient>
         </Pressable>
 
         <Pressable
-          style={[tailwind`flex-1 py-5 rounded-2xl shadow-lg flex-row items-center justify-center`, { backgroundColor: colors.success }]}
+          style={({ pressed }) => [
+            tailwind`flex-1 rounded-2xl shadow-lg overflow-hidden`,
+            { transform: [{ scale: pressed ? 0.98 : 1 }] }
+          ]}
           onPress={() => navigation.navigate('Create')}
         >
-          <Text style={tailwind`text-white text-2xl mr-2`}>➕</Text>
-          <Text style={tailwind`text-white font-bold text-base`}>Add Expense</Text>
+          <LinearGradient
+            colors={[colors.success || '#10B981', '#059669']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={tailwind`py-4 flex-row items-center justify-center`}
+          >
+            <View style={[tailwind`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+              <Text style={tailwind`text-xl`}>➕</Text>
+            </View>
+            <Text style={tailwind`text-white font-bold text-lg`}>Add Expense</Text>
+          </LinearGradient>
         </Pressable>
       </View>
 

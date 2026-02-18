@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View, ScrollView, SafeAreaView, Pressable } from 'react-native'
 import React, { useMemo, useState } from 'react'
+import { LinearGradient } from 'expo-linear-gradient';
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
 import tailwind from 'twrnc'
@@ -188,15 +189,18 @@ const Insights = () => {
       <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
         <ScrollView style={[tailwind`flex-1`, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
           {/* Header */}
-          <View style={[tailwind`p-6 pb-8`, { backgroundColor: colors.primary }]}>
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark || '#4f46e5']}
+            style={tailwind`p-6 pb-12 rounded-b-3xl shadow-lg`}
+          >
             <Text style={tailwind`text-3xl font-bold text-white`}>Insights</Text>
             <Text style={tailwind`text-white opacity-90 mt-1`}>
               {budgetPeriod === 'weekly' ? 'Weekly' : 'Monthly'} Budget Analysis
             </Text>
-          </View>
+          </LinearGradient>
 
           {/* Period Selector */}
-          <View style={[tailwind`mx-5 -mt-4 mb-3 p-4 rounded-2xl shadow-lg`, { backgroundColor: colors.surface }]}>
+          <View style={[tailwind`mx-5 -mt-8 mb-3 p-4 rounded-2xl shadow-lg`, { backgroundColor: colors.surface }]}>
             <View style={tailwind`flex-row items-center justify-between`}>
               <Pressable
                 onPress={() => setSelectedPeriodOffset(selectedPeriodOffset - 1)}
@@ -264,15 +268,18 @@ const Insights = () => {
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
       <ScrollView style={[tailwind`flex-1`, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={[tailwind`p-6 pb-8`, { backgroundColor: colors.primary }]}>
+        <LinearGradient
+          colors={[colors.primary, colors.primaryDark || '#4f46e5']}
+          style={tailwind`p-6 pb-12 rounded-b-3xl shadow-lg`}
+        >
           <Text style={tailwind`text-3xl font-bold text-white`}>Insights</Text>
           <Text style={tailwind`text-white opacity-90 mt-1`}>
             {budgetPeriod === 'weekly' ? 'Weekly' : 'Monthly'} Budget Analysis
           </Text>
-        </View>
+        </LinearGradient>
 
         {/* Period Selector */}
-        <View style={[tailwind`mx-5 -mt-4 mb-3 p-4 rounded-2xl shadow-lg`, { backgroundColor: colors.surface }]}>
+        <View style={[tailwind`mx-5 -mt-8 mb-3 p-4 rounded-2xl shadow-lg`, { backgroundColor: colors.surface }]}>
           <View style={tailwind`flex-row items-center justify-between`}>
             <Pressable
               onPress={() => setSelectedPeriodOffset(selectedPeriodOffset - 1)}

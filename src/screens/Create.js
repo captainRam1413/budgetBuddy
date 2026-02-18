@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, Text, View, TextInput, Pressable, Alert, Modal, SafeAreaView, ActivityIndicator, Linking, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native'
 import React from 'react'
+import { LinearGradient } from 'expo-linear-gradient';
 import tailwind from 'twrnc'
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
@@ -7,7 +8,7 @@ import QRScanner from '../components/QRScanner'
 import { expenseAPI } from '../services/appwriteAPI'
 import { initiateQrPayment, initiateManualPayment, showPaymentConfirmation } from '../services/paymentService'
 
-const Create = ({navigation, route}) => {
+const Create = ({ navigation, route }) => {
   const [amount, setAmount] = React.useState('');
   const [title, setTitle] = React.useState('');
   const [category, setCategory] = React.useState({});
@@ -18,7 +19,7 @@ const Create = ({navigation, route}) => {
   const [loading, setLoading] = React.useState(false);
   const { addExpense, expenses, categoryBudgets, userData } = useExpense();
   const { colors } = useTheme();
- 
+
   React.useEffect(() => {
     if (route.params?.item) {
       const { item, preservedAmount, preservedTitle } = route.params;
@@ -184,16 +185,18 @@ const Create = ({navigation, route}) => {
       if (result.success) {
         // Also update local context for immediate UI update
         addExpense({ amount, title, category });
-        
+
         Alert.alert(
-          "Success", 
+          "Success",
           title + " - Rs." + amount + " added to " + category.name,
-          [{ text: "OK", onPress: () => {
-            setAmount('');
-            setTitle('');
-            setQrCode('');
-            navigation.goBack();
-          }}]
+          [{
+            text: "OK", onPress: () => {
+              setAmount('');
+              setTitle('');
+              setQrCode('');
+              navigation.goBack();
+            }
+          }]
         );
       } else {
         Alert.alert("Error", result.message || "Failed to save expense");
@@ -216,12 +219,12 @@ const Create = ({navigation, route}) => {
 
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={tailwind`flex-1`}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={tailwind`p-6 pb-24`}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -234,108 +237,113 @@ const Create = ({navigation, route}) => {
             </Text>
           </View>
 
-        {/* Amount */}
-        <View style={tailwind`mb-5`}>
-          <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>💵 Amount</Text>
-          <TextInput 
-            placeholder="₹0.00" 
-            placeholderTextColor={colors.placeholder}
-            keyboardType="numeric"
-            returnKeyType="next"
-            blurOnSubmit={false}
-            style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, { 
-              backgroundColor: colors.input,
-              borderWidth: 1,
-              borderColor: colors.border,
-              color: colors.text
-            }]} 
-            value={amount}
-            onChangeText={setAmount}
-          />
-          {amount && parseFloat(amount) > 0 && (
-            <Text style={[tailwind`text-xs mt-1`, { color: colors.success || '#10b981' }]}>✓ Amount entered: ₹{parseFloat(amount).toFixed(2)}</Text>
-          )}
-        </View>
+          {/* Amount */}
+          <View style={tailwind`mb-5`}>
+            <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>💵 Amount</Text>
+            <TextInput
+              placeholder="₹0.00"
+              placeholderTextColor={colors.placeholder}
+              keyboardType="numeric"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, {
+                backgroundColor: colors.input,
+                borderWidth: 1,
+                borderColor: colors.border,
+                color: colors.text
+              }]}
+              value={amount}
+              onChangeText={setAmount}
+            />
+            {amount && parseFloat(amount) > 0 && (
+              <Text style={[tailwind`text-xs mt-1`, { color: colors.success || '#10b981' }]}>✓ Amount entered: ₹{parseFloat(amount).toFixed(2)}</Text>
+            )}
+          </View>
 
-        {/* Title */}
-        <View style={tailwind`mb-5`}>
-          <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📝 Description</Text>
-          <TextInput 
-            placeholder="e.g., Grocery Shopping" 
-            placeholderTextColor={colors.placeholder}
-            returnKeyType="done"
-            style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, { 
-              backgroundColor: colors.input,
-              borderWidth: 1,
-              borderColor: colors.border,
-              color: colors.text
-            }]} 
-            value={title}
-            onChangeText={setTitle}
-          />
-        </View>
+          {/* Title */}
+          <View style={tailwind`mb-5`}>
+            <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📝 Description</Text>
+            <TextInput
+              placeholder="e.g., Grocery Shopping"
+              placeholderTextColor={colors.placeholder}
+              returnKeyType="done"
+              style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, {
+                backgroundColor: colors.input,
+                borderWidth: 1,
+                borderColor: colors.border,
+                color: colors.text
+              }]}
+              value={title}
+              onChangeText={setTitle}
+            />
+          </View>
 
-        {/* Category */}
-        <View style={tailwind`mb-8`}>
-          <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📊 Category</Text>
-          <Pressable 
-            onPress={handleCategoryInput}
-            style={[tailwind`p-4 rounded-2xl flex-row justify-between items-center shadow-sm`, {
-              backgroundColor: colors.input,
-              borderWidth: 1,
-              borderColor: colors.border
-            }]}
-          >
-            <View style={tailwind`flex-row items-center`}>
-              <View style={[tailwind`w-10 h-10 rounded-xl items-center justify-center mr-3`, { backgroundColor: category.color ? category.color + '30' : colors.border }]}>
-                <Text style={tailwind`text-xl`}>{category.icon || '🎯'}</Text>
+          {/* Category */}
+          <View style={tailwind`mb-8`}>
+            <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📊 Category</Text>
+            <Pressable
+              onPress={handleCategoryInput}
+              style={[tailwind`p-4 rounded-2xl flex-row justify-between items-center shadow-sm`, {
+                backgroundColor: colors.input,
+                borderWidth: 1,
+                borderColor: colors.border
+              }]}
+            >
+              <View style={tailwind`flex-row items-center`}>
+                <View style={[tailwind`w-10 h-10 rounded-xl items-center justify-center mr-3`, { backgroundColor: category.color ? category.color + '30' : colors.border }]}>
+                  <Text style={tailwind`text-xl`}>{category.icon || '🎯'}</Text>
+                </View>
+                <Text style={[tailwind`text-base font-semibold`, { color: category.name ? colors.text : colors.placeholder }]}>{category.name || 'Select Category'}</Text>
               </View>
-              <Text style={[tailwind`text-base font-semibold`, { color: category.name ? colors.text : colors.placeholder }]}>{category.name || 'Select Category'}</Text>
-            </View>
-            <Text style={[tailwind`text-xl`, { color: colors.textSecondary }]}>›</Text>
-          </Pressable>
-        </View>
+              <Text style={[tailwind`text-xl`, { color: colors.textSecondary }]}>›</Text>
+            </Pressable>
+          </View>
 
-        {/* Save Only Button */}
-        <Pressable
-          style={({ pressed }) => [
-            tailwind`p-5 rounded-2xl mb-3 shadow-lg`, 
-            { 
-              backgroundColor: colors.primary,
-              opacity: pressed ? 0.8 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }]
-            }
-          ]}
-          onPress={handleSaveOnly}
-          disabled={loading}
-        >
-          <Text style={tailwind`text-white text-lg font-bold text-center`}>
-            {loading ? '⏳ Saving...' : '💾 Save Expense'}
+          {/* Action Buttons */}
+          <View style={tailwind`gap-4 mt-2 mb-6`}>
+            {/* Save Only Button */}
+            <Pressable
+              style={({ pressed }) => [
+                tailwind`rounded-2xl shadow-lg overflow-hidden`,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] }
+              ]}
+              onPress={handleSaveOnly}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.primaryDark || '#4f46e5']}
+                style={tailwind`p-5 flex-row items-center justify-center`}
+              >
+                <Text style={tailwind`text-white text-lg font-bold mr-2`}>💾</Text>
+                <Text style={tailwind`text-white text-lg font-bold`}>
+                  {loading ? 'Saving...' : 'Save Expense'}
+                </Text>
+              </LinearGradient>
+            </Pressable>
+
+            {/* Payment Button */}
+            <Pressable
+              style={({ pressed }) => [
+                tailwind`rounded-2xl shadow-lg overflow-hidden`,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] }
+              ]}
+              onPress={handleInitiatePayment}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={[colors.success, '#059669']}
+                style={tailwind`p-5 flex-row items-center justify-center`}
+              >
+                <Text style={tailwind`text-white text-lg font-bold mr-2`}>💳</Text>
+                <Text style={tailwind`text-white text-lg font-bold`}>Pay & Save</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+
+          <Text style={[tailwind`text-xs text-center mt-4`, { color: colors.textTertiary }]}>
+            Payment opens UPI apps like Google Pay, PhonePe, Paytm
           </Text>
-        </Pressable>
-
-        {/* Payment Button */}
-        <Pressable
-          style={({ pressed }) => [
-            tailwind`p-5 rounded-2xl shadow-lg`, 
-            { 
-              backgroundColor: colors.success,
-              opacity: pressed ? 0.8 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }]
-            }
-          ]}
-          onPress={handleInitiatePayment}
-          disabled={loading}
-        >
-          <Text style={tailwind`text-white text-lg font-bold text-center`}>
-            💳 Pay & Save
-          </Text>
-        </Pressable>
-
-        <Text style={[tailwind`text-xs text-center mt-4`, { color: colors.textTertiary }]}>
-          Payment opens UPI apps like Google Pay, PhonePe, Paytm
-        </Text>
-      </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Payment Modal */}
@@ -347,7 +355,7 @@ const Create = ({navigation, route}) => {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={[tailwind`flex-1 justify-end`, { backgroundColor: colors.overlay }]}>
-            <KeyboardAvoidingView 
+            <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
             >
@@ -357,69 +365,78 @@ const Create = ({navigation, route}) => {
                     Payment Details
                   </Text>
 
-            {/* Payment Summary */}
-            <View style={[tailwind`p-4 rounded-xl mb-4`, { backgroundColor: colors.borderLight }]}>
-              <View style={tailwind`flex-row justify-between mb-2`}>
-                <Text style={[tailwind``, { color: colors.textSecondary }]}>Amount:</Text>
-                <Text style={[tailwind`font-bold text-lg`, { color: colors.text }]}>₹{amount}</Text>
-              </View>
-              <View style={tailwind`flex-row justify-between mb-2`}>
-                <Text style={[tailwind``, { color: colors.textSecondary }]}>For:</Text>
-                <Text style={[tailwind`font-semibold`, { color: colors.text }]}>{title}</Text>
-              </View>
-              <View style={tailwind`flex-row justify-between`}>
-                <Text style={[tailwind``, { color: colors.textSecondary }]}>Category:</Text>
-                <Text style={[tailwind`font-semibold`, { color: colors.text }]}>{category.icon} {category.name}</Text>
-              </View>
-            </View>
+                  {/* Payment Summary */}
+                  <View style={[tailwind`p-4 rounded-xl mb-4`, { backgroundColor: colors.borderLight }]}>
+                    <View style={tailwind`flex-row justify-between mb-2`}>
+                      <Text style={[tailwind``, { color: colors.textSecondary }]}>Amount:</Text>
+                      <Text style={[tailwind`font-bold text-lg`, { color: colors.text }]}>₹{amount}</Text>
+                    </View>
+                    <View style={tailwind`flex-row justify-between mb-2`}>
+                      <Text style={[tailwind``, { color: colors.textSecondary }]}>For:</Text>
+                      <Text style={[tailwind`font-semibold`, { color: colors.text }]}>{title}</Text>
+                    </View>
+                    <View style={tailwind`flex-row justify-between`}>
+                      <Text style={[tailwind``, { color: colors.textSecondary }]}>Category:</Text>
+                      <Text style={[tailwind`font-semibold`, { color: colors.text }]}>{category.icon} {category.name}</Text>
+                    </View>
+                  </View>
 
-            {/* UPI ID Input */}
-            <Text style={[tailwind`text-lg font-semibold mb-2`, { color: colors.textSecondary }]}>
-              Enter UPI ID or Scan QR
-            </Text>
-            <View style={tailwind`flex-row gap-2 mb-4`}>
-              <TextInput 
-                placeholder="example@paytm" 
-                placeholderTextColor={colors.placeholder}
-                style={[tailwind`flex-1 p-4 rounded-xl border-2`, { 
-                  backgroundColor: colors.input,
-                  borderColor: colors.inputBorder,
-                  color: colors.text
-                }]} 
-                value={qrCode}
-                onChangeText={setQrCode}
-                autoCapitalize="none"
-              />
-              <Pressable
-                style={[tailwind`px-4 rounded-xl justify-center items-center`, { backgroundColor: colors.info }]}
-                onPress={handleScanQR}
-              >
-                <Text style={tailwind`text-3xl`}>📷</Text>
-                <Text style={tailwind`text-white text-xs font-bold`}>Scan</Text>
-              </Pressable>
-            </View>
+                  {/* UPI ID Input */}
+                  <Text style={[tailwind`text-lg font-semibold mb-2`, { color: colors.textSecondary }]}>
+                    Enter UPI ID or Scan QR
+                  </Text>
+                  <View style={tailwind`flex-row gap-2 mb-4`}>
+                    <TextInput
+                      placeholder="example@paytm"
+                      placeholderTextColor={colors.placeholder}
+                      style={[tailwind`flex-1 p-4 rounded-xl border-2`, {
+                        backgroundColor: colors.input,
+                        borderColor: colors.inputBorder,
+                        color: colors.text
+                      }]}
+                      value={qrCode}
+                      onChangeText={setQrCode}
+                      autoCapitalize="none"
+                    />
+                    <Pressable
+                      style={[tailwind`px-4 rounded-xl justify-center items-center`, { backgroundColor: colors.info }]}
+                      onPress={handleScanQR}
+                    >
+                      <Text style={tailwind`text-3xl`}>📷</Text>
+                      <Text style={tailwind`text-white text-xs font-bold`}>Scan</Text>
+                    </Pressable>
+                  </View>
 
-            {/* Action Buttons */}
-            <View style={tailwind`flex-row gap-3`}>
-              <Pressable
-                style={[tailwind`flex-1 p-4 rounded-xl`, { backgroundColor: colors.border }]}
-                onPress={() => setShowPaymentModal(false)}
-              >
-                <Text style={[tailwind`font-bold text-center`, { color: colors.text }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[tailwind`flex-1 p-4 rounded-xl`, { backgroundColor: colors.success }]}
-                onPress={handleConfirmPayment}
-              >
-                <Text style={tailwind`text-white font-bold text-center`}>Pay Now</Text>
-              </Pressable>
-            </View>
+                  {/* Action Buttons */}
+                  {/* Action Buttons */}
+                  <View style={tailwind`flex-row gap-3 mt-4`}>
+                    <Pressable
+                      style={[tailwind`flex-1 p-4 rounded-xl border border-gray-200`, { backgroundColor: colors.surface }]}
+                      onPress={() => setShowPaymentModal(false)}
+                    >
+                      <Text style={[tailwind`font-bold text-center`, { color: colors.text }]}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        tailwind`flex-1 rounded-xl shadow-md overflow-hidden`,
+                        { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                      ]}
+                      onPress={handleConfirmPayment}
+                    >
+                      <LinearGradient
+                        colors={[colors.success, '#059669']}
+                        style={tailwind`p-4 items-center justify-center`}
+                      >
+                        <Text style={tailwind`text-white font-bold text-center`}>Pay Now</Text>
+                      </LinearGradient>
+                    </Pressable>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
           </View>
         </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    </View>
-  </TouchableWithoutFeedback>
-</Modal>
+      </Modal>
 
       {/* QR Scanner Modal */}
       <Modal
@@ -427,7 +444,7 @@ const Create = ({navigation, route}) => {
         animationType="slide"
         onRequestClose={() => setShowQRScanner(false)}
       >
-        <QRScanner 
+        <QRScanner
           onScan={handleQRScanned}
           onClose={() => setShowQRScanner(false)}
         />

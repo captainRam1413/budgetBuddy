@@ -340,30 +340,36 @@ const Profile = ({ navigation }) => {
             </View>
             <View style={tailwind`flex-row gap-2`}>
               <Pressable
-                style={[tailwind`px-4 py-2.5 rounded-xl shadow-sm`, { backgroundColor: colors.success }]}
+                style={({ pressed }) => [tailwind`rounded-xl shadow-sm overflow-hidden`, { transform: [{ scale: pressed ? 0.96 : 1 }] }]}
                 onPress={() => {
                   setBudgetInput('');
                   setShowEditBudgetModal(true);
-                  // Use a flag for "adding" vs "setting"
-                  // But for simplicity, let's just make a new modal or specialized state usage
-                  // Reusing modal but we need to know if we are adding or setting
-                  // Let's add a new state `isAddingFunds`
                   setIsAddingFunds(true);
                 }}
               >
-                <Text style={tailwind`text-white font-bold text-sm`}>+ Add</Text>
+                <LinearGradient
+                  colors={[colors.success, '#059669']}
+                  style={tailwind`px-4 py-2.5`}
+                >
+                  <Text style={tailwind`text-white font-bold text-sm`}>+ Add</Text>
+                </LinearGradient>
               </Pressable>
 
               <Pressable
-                style={[tailwind`px-4 py-2.5 rounded-xl shadow-sm`, { backgroundColor: colors.primary }]}
+                style={({ pressed }) => [tailwind`rounded-xl shadow-sm overflow-hidden`, { transform: [{ scale: pressed ? 0.96 : 1 }] }]}
                 onPress={() => {
                   setIsAddingFunds(false);
                   handleEditBudget();
                 }}
               >
-                <Text style={tailwind`text-white font-bold text-sm`}>
-                  {totalBudget > 0 ? 'Edit' : 'Set'}
-                </Text>
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryDark]}
+                  style={tailwind`px-4 py-2.5`}
+                >
+                  <Text style={tailwind`text-white font-bold text-sm`}>
+                    {totalBudget > 0 ? 'Edit' : 'Set'}
+                  </Text>
+                </LinearGradient>
               </Pressable>
             </View>
           </View>
@@ -416,10 +422,12 @@ const Profile = ({ navigation }) => {
               📊 Categories
             </Text>
             <Pressable
-              style={[tailwind`px-5 py-2 rounded-xl shadow-sm`, { backgroundColor: colors.success }]}
+              style={({ pressed }) => [tailwind`rounded-xl shadow-sm overflow-hidden`, { transform: [{ scale: pressed ? 0.96 : 1 }] }]}
               onPress={() => setShowAddCategoryModal(true)}
             >
-              <Text style={tailwind`text-white font-bold text-sm`}>➕ Add</Text>
+              <LinearGradient colors={[colors.success, '#059669']} style={tailwind`px-5 py-2`}>
+                <Text style={tailwind`text-white font-bold text-sm`}>➕ Add</Text>
+              </LinearGradient>
             </Pressable>
           </View>
 
@@ -457,16 +465,20 @@ const Profile = ({ navigation }) => {
                   </View>
                   <View style={tailwind`flex-row gap-2`}>
                     <Pressable
-                      style={[tailwind`px-4 py-2 rounded-xl shadow-sm`, { backgroundColor: colors.primary }]}
+                      style={({ pressed }) => [tailwind`rounded-xl shadow-sm overflow-hidden`, { transform: [{ scale: pressed ? 0.96 : 1 }] }]}
                       onPress={() => handleEditCategory(category)}
                     >
-                      <Text style={tailwind`text-white font-semibold text-xs`}>Edit</Text>
+                      <LinearGradient colors={[colors.primary, colors.primaryDark]} style={tailwind`px-4 py-2`}>
+                        <Text style={tailwind`text-white font-semibold text-xs`}>Edit</Text>
+                      </LinearGradient>
                     </Pressable>
                     <Pressable
-                      style={[tailwind`px-3 py-2 rounded-xl shadow-sm`, { backgroundColor: colors.error }]}
+                      style={({ pressed }) => [tailwind`rounded-xl shadow-sm overflow-hidden`, { transform: [{ scale: pressed ? 0.96 : 1 }] }]}
                       onPress={() => handleDeleteCategory(category)}
                     >
-                      <Text style={tailwind`text-white font-semibold text-xs`}>🗑️</Text>
+                      <LinearGradient colors={[colors.error, '#991B1B']} style={tailwind`px-3 py-2`}>
+                        <Text style={tailwind`text-white font-semibold text-xs`}>🗑️</Text>
+                      </LinearGradient>
                     </Pressable>
                   </View>
                 </View>
@@ -684,10 +696,18 @@ const Profile = ({ navigation }) => {
                   <Text style={[tailwind`font-bold text-center`, { color: colors.text }]}>Cancel</Text>
                 </Pressable>
                 <Pressable
-                  style={[tailwind`flex-1 p-4 rounded-xl`, { backgroundColor: colors.primary }]}
+                  style={({ pressed }) => [
+                    tailwind`flex-1 rounded-xl shadow-md overflow-hidden`,
+                    { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                  ]}
                   onPress={handleSetBudget}
                 >
-                  <Text style={tailwind`text-white font-bold text-center`}>Save</Text>
+                  <LinearGradient
+                    colors={[colors.primary, colors.primaryDark]}
+                    style={tailwind`p-4 items-center justify-center`}
+                  >
+                    <Text style={tailwind`text-white font-bold text-center`}>Save</Text>
+                  </LinearGradient>
                 </Pressable>
               </View>
             </View>
@@ -824,10 +844,18 @@ const Profile = ({ navigation }) => {
                   <Text style={[tailwind`font-bold text-center`, { color: colors.text }]}>Cancel</Text>
                 </Pressable>
                 <Pressable
-                  style={[tailwind`flex-1 p-4 rounded-xl`, { backgroundColor: colors.primary }]}
+                  style={({ pressed }) => [
+                    tailwind`flex-1 rounded-xl shadow-md overflow-hidden`,
+                    { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                  ]}
                   onPress={handleAddCategory}
                 >
-                  <Text style={tailwind`text-white font-bold text-center`}>Create</Text>
+                  <LinearGradient
+                    colors={[colors.primary, colors.primaryDark]}
+                    style={tailwind`p-4 items-center justify-center`}
+                  >
+                    <Text style={tailwind`text-white font-bold text-center`}>Create</Text>
+                  </LinearGradient>
                 </Pressable>
               </View>
             </ScrollView>
@@ -889,10 +917,18 @@ const Profile = ({ navigation }) => {
                       <Text style={[tailwind`font-bold text-center`, { color: colors.text }]}>Cancel</Text>
                     </Pressable>
                     <Pressable
-                      style={[tailwind`flex-1 p-4 rounded-xl`, { backgroundColor: colors.success }]}
+                      style={({ pressed }) => [
+                        tailwind`flex-1 rounded-xl shadow-md overflow-hidden`,
+                        { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                      ]}
                       onPress={handleSaveEditCategory}
                     >
-                      <Text style={tailwind`text-white font-bold text-center`}>Save</Text>
+                      <LinearGradient
+                        colors={[colors.success, '#059669']}
+                        style={tailwind`p-4 items-center justify-center`}
+                      >
+                        <Text style={tailwind`text-white font-bold text-center`}>Save</Text>
+                      </LinearGradient>
                     </Pressable>
                   </View>
                 </>
