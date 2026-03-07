@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TextInput, Pressable, Alert, Modal, Switch, SafeAreaView, ActivityIndicator } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TextInput, Pressable, Alert, Modal, Switch, SafeAreaView, ActivityIndicator, FlatList } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react'
 import tailwind from 'twrnc'
@@ -7,6 +7,8 @@ import { useTheme } from '../context/ThemeContext'
 import { AVAILABLE_ICONS, AVAILABLE_COLORS } from '../constant'
 import { authAPI } from '../services/appwriteAPI'
 import { exportExpensesAsPDF, exportExpensesAsCSV, importExpensesFromCSV } from '../services/pdfService'
+import ExpenceItemCard from '../components/ExpenceItemCard';
+import EmptyList from '../components/EmptyList';
 
 const Profile = ({ navigation }) => {
   const {
@@ -41,6 +43,7 @@ const Profile = ({ navigation }) => {
   const [showUserProfileModal, setShowUserProfileModal] = useState(false);
   const [savingPeriod, setSavingPeriod] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [selectedCategoryToView, setSelectedCategoryToView] = useState(null);
 
   // New category fields
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -229,6 +232,11 @@ const Profile = ({ navigation }) => {
   const allocationPercentage = totalBudget > 0 ? (totalAllocated / totalBudget) * 100 : 0;
   // Use current period spending (like Home screen does) so it resets each term
   const totalSpent = getTotalSpending(true);
+
+  const categoryTransactions = selectedCategoryToView 
+    ? expenses.filter(e => e.category === selectedCategoryToView.name)
+        .sort((a,b) => new Date(b.date) - new Date(a.date))
+    : [];
 
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
@@ -437,7 +445,18 @@ const Profile = ({ navigation }) => {
             const status = getCategoryBudgetStatus(category.name);
 
             return (
-              <View key={index} style={[tailwind`rounded-3xl p-5 mb-3 shadow-sm`, { backgroundColor: colors.surface }]}>
+              <Pressable 
+                key={index} 
+                style={({ pressed }) => [
+                  tailwind`rounded-3xl p-5 mb-3 shadow-sm border`, 
+                  { 
+                    backgroundColor: colors.surface,
+                    borderColor: 'transparent',
+                    transform: [{ scale: pressed ? 0.98 : 1 }]
+                  }
+                ]}
+                onPress={() => setSelectedCategoryToView(category)}
+              >
                 <View style={tailwind`flex-row items-center justify-between mb-3`}>
                   <View style={tailwind`flex-row items-center flex-1`}>
                     <View style={[tailwind`w-12 h-12 rounded-2xl items-center justify-center mr-3 shadow-sm`, { backgroundColor: category.color + '30' }]}>
@@ -499,7 +518,7 @@ const Profile = ({ navigation }) => {
                     />
                   </View>
                 )}
-              </View>
+              </Pressable>
             );
           })}
 
@@ -933,6 +952,59 @@ const Profile = ({ navigation }) => {
                       </LinearGradient>
                     </Pressable>
                   </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Category Transactions Modal */}
+        <Modal
+          visible={selectedCategoryToView !== null}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setSelectedCategoryToView(null)}
+        >
+          <View style={[tailwind`flex-1 justify-end`, { backgroundColor: colors.overlay }]}>
+            <View style={[tailwind`rounded-t-3xl pt-2 pb-6 flex-1 mt-20`, { backgroundColor: colors.background }]}>
+              {/* Pull Bar */}
+              <View style={tailwind`items-center pb-4 pt-2`}>
+                <View style={[tailwind`w-12 h-1.5 rounded-full`, { backgroundColor: colors.border }]} />
+              </View>
+
+              {selectedCategoryToView && (
+                <>
+                  <View style={tailwind`px-6 mb-4 flex-row items-center justify-between`}>
+                    <View style={tailwind`flex-row items-center flex-1`}>
+                      <View style={[tailwind`w-12 h-12 rounded-2xl items-center justify-center mr-3 shadow-sm`, { backgroundColor: selectedCategoryToView.color + '30' }]}>
+                        <Text style={tailwind`text-2xl`}>{selectedCategoryToView.icon}</Text>
+                      </View>
+                      <View style={tailwind`flex-1`}>
+                        <Text style={[tailwind`text-2xl font-bold`, { color: colors.text }]}>
+                          {selectedCategoryToView.name}
+                        </Text>
+                        <Text style={[tailwind`text-sm font-semibold mt-1`, { color: colors.textSecondary }]}>
+                          {categoryTransactions.length} transaction{categoryTransactions.length !== 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <Pressable
+                      onPress={() => setSelectedCategoryToView(null)}
+                      style={[tailwind`w-10 h-10 rounded-full items-center justify-center`, { backgroundColor: colors.border }]}
+                    >
+                      <Text style={[tailwind`text-xl`, { color: colors.text }]}>✕</Text>
+                    </Pressable>
+                  </View>
+
+                  <FlatList
+                    data={categoryTransactions}
+                    renderItem={({ item, index }) => <ExpenceItemCard item={item} index={index} />}
+                    keyExtractor={(item) => item.id ? item.id.toString() : index.toString()}
+                    contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }}
+                    ListEmptyComponent={<EmptyList />}
+                    showsVerticalScrollIndicator={false}
+                  />
                 </>
               )}
             </View>
