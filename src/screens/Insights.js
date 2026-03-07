@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, Pressable } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, SafeAreaView, Pressable, Animated } from 'react-native'
 import React, { useMemo, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient';
 import { useExpense } from '../context/ExpenseContext'
@@ -18,6 +18,29 @@ const Insights = () => {
 
   // Period selection state
   const [selectedPeriodOffset, setSelectedPeriodOffset] = useState(0) // 0 = current, -1 = previous, etc.
+
+  // Animation values
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(30)).current;
+
+  // Run entrance animation on mount and when period changes
+  React.useEffect(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(30);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, [fadeAnim, slideAnim, selectedPeriodOffset]);
 
   // Get the date range for selected period
   const getSelectedPeriodRange = () => {
@@ -239,15 +262,15 @@ const Insights = () => {
             </View>
           </View>
 
-          {/* Empty State */}
-          <View style={[tailwind`flex-1 justify-center items-center p-8 mt-12`]}>
-            <Text style={tailwind`text-6xl mb-4`}>📊</Text>
-            <Text style={[tailwind`text-xl font-bold mb-2`, { color: colors.text }]}>
-              No expenses for {getPeriodLabel()}
-            </Text>
-            <Text style={[tailwind`text-base text-center mb-4`, { color: colors.textSecondary }]}>
-              {selectedPeriodOffset === 0
-                ? 'Add some expenses to see your spending insights'
+            {/* Empty State */}
+            <Animated.View style={[tailwind`flex-1 justify-center items-center p-8 mt-12`, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+              <Text style={tailwind`text-6xl mb-4`}>📊</Text>
+              <Text style={[tailwind`text-xl font-bold mb-2`, { color: colors.text }]}>
+                No expenses for {getPeriodLabel()}
+              </Text>
+              <Text style={[tailwind`text-base text-center mb-4`, { color: colors.textSecondary }]}>
+                {selectedPeriodOffset === 0
+                  ? 'Add some expenses to see your spending insights'
                 : 'Try selecting a different period or add new expenses'
               }
             </Text>
@@ -258,7 +281,7 @@ const Insights = () => {
                 </Text>
               </View>
             )}
-          </View>
+          </Animated.View>
         </ScrollView>
       </SafeAreaView>
     )

@@ -156,7 +156,7 @@ export default function AppNavigator(params) {
         // Set up interval to check authentication status periodically
         const authCheckInterval = setInterval(() => {
             checkAuth();
-        }, 2000); // Check every 2 seconds
+        }, 30000); // Check every 30 seconds
 
         return () => clearInterval(authCheckInterval);
     }, []);

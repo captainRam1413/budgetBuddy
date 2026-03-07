@@ -18,6 +18,7 @@ const Profile = ({ navigation }) => {
     setCategoryBudget,
     getCategoryBudgetStatus,
     getTotalSpending,
+    getExpensesForCurrentPeriod,
     getAllCategories,
     addCustomCategory,
     deleteCategory,
@@ -113,13 +114,13 @@ const Profile = ({ navigation }) => {
     Alert.alert("Success", `Budget for ${categoryName} set to ₹${amount.toFixed(2)}`);
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
       Alert.alert('Error', 'Please enter a category name');
       return;
     }
 
-    const result = addCustomCategory({
+    const result = await addCustomCategory({
       name: newCategoryName.trim(),
       icon: selectedIcon,
       color: selectedColor
@@ -226,7 +227,8 @@ const Profile = ({ navigation }) => {
 
   const totalAllocated = Object.values(categoryBudgets).reduce((sum, val) => sum + val, 0);
   const allocationPercentage = totalBudget > 0 ? (totalAllocated / totalBudget) * 100 : 0;
-  const totalSpent = getTotalSpending();
+  // Use current period spending (like Home screen does) so it resets each term
+  const totalSpent = getTotalSpending(true);
 
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>

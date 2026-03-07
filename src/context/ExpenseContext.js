@@ -281,26 +281,49 @@ export function ExpenseProvider({ children }) {
   };
 
   // Add custom category
-  const addCustomCategory = (category) => {
+  const addCustomCategory = async (category) => {
     const exists = customCategories.some(cat => cat.name.toLowerCase() === category.name.toLowerCase());
 
     if (exists) {
       return { success: false, message: 'Category already exists' };
     }
 
-    setCustomCategories([...customCategories, category]);
-    return { success: true, message: 'Category added successfully' };
+    try {
+      // If the parameter `category` has property `budget`, we extract it, else 0
+      const result = await categoryAPI.create(category.name, category.icon, category.color, category.budget || 0);
+      if (result.success) {
+        setCustomCategories([...customCategories, category]);
+        return { success: true, message: 'Category added successfully' };
+      }
+      return { success: false, message: result.message || 'Failed to add category to database' };
+    } catch (error) {
+      console.error('Failed to add category to DB:', error);
+      return { success: false, message: error.message || 'Error communicating with database' };
+    }
   };
 
   // Add multiple categories
-  const addMultipleCategories = (categoriesArray) => {
+  const addMultipleCategories = async (categoriesArray) => {
     const validCategories = categoriesArray.filter(cat =>
       cat.name && cat.name.trim() &&
       !customCategories.some(existing => existing.name.toLowerCase() === cat.name.toLowerCase())
     );
 
-    setCustomCategories([...customCategories, ...validCategories]);
-    return { success: true, count: validCategories.length };
+    if (validCategories.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    try {
+      const result = await categoryAPI.createMultiple(validCategories);
+      if (result.success) {
+        setCustomCategories([...customCategories, ...validCategories]);
+        return { success: true, count: validCategories.length };
+      }
+      return { success: false, message: result.message || 'Failed to save multiple categories' };
+    } catch (error) {
+      console.error('Failed to save multiple categories:', error);
+      return { success: false, message: error.message || 'Database error' };
+    }
   };
 
   // Delete category
@@ -416,20 +439,23 @@ export function ExpenseProvider({ children }) {
   const getCategorySpending = (categoryName, useCurrentPeriod = false) => {
     const expensesToUse = useCurrentPeriod ? getExpensesForCurrentPeriod() : expenses;
     return expensesToUse
-      .filter(exp => exp.category === categoryName)
+      .filter(exp => exp.category === categoryName && !isIncome(exp))
       .reduce((sum, exp) => sum + exp.amount, 0);
   };
 
   // Get total spending
   const getTotalSpending = (useCurrentPeriod = false) => {
     const expensesToUse = useCurrentPeriod ? getExpensesForCurrentPeriod() : expenses;
-    return expensesToUse.reduce((sum, exp) => sum + exp.amount, 0);
+    return expensesToUse
+      .filter(exp => !isIncome(exp))
+      .reduce((sum, exp) => sum + exp.amount, 0);
   };
 
   // Get budget status
   const getCategoryBudgetStatus = (categoryName) => {
     const budget = categoryBudgets[categoryName] || 0;
-    const spent = getCategorySpending(categoryName);
+    // Use current period spending so it resets with each new week/month
+    const spent = getCategorySpending(categoryName, true);
     const remaining = budget - spent;
     const percentage = budget > 0 ? (spent / budget) * 100 : 0;
 

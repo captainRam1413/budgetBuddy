@@ -1,11 +1,11 @@
-import { ScrollView, StyleSheet, Text, View, TextInput, Pressable, Alert, Modal, SafeAreaView, ActivityIndicator, Linking, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native'
+import { ScrollView, StyleSheet, Text, View, TextInput, Pressable, Alert, Modal, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Animated } from 'react-native'
 import React from 'react'
 import { LinearGradient } from 'expo-linear-gradient';
 import tailwind from 'twrnc'
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
 import QRScanner from '../components/QRScanner'
-import { expenseAPI } from '../services/appwriteAPI'
+import SmsScannerModal from '../components/SmsScannerModal'
 import { initiateQrPayment, initiateManualPayment, showPaymentConfirmation } from '../services/paymentService'
 
 const Create = ({ navigation, route }) => {
@@ -16,9 +16,31 @@ const Create = ({ navigation, route }) => {
   const [fullQrData, setFullQrData] = React.useState(''); // Store full QR data
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
   const [showQRScanner, setShowQRScanner] = React.useState(false);
+  const [showSmsScanner, setShowSmsScanner] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const { addExpense, expenses, categoryBudgets, userData } = useExpense();
+  const { addExpense, categoryBudgets, getCategorySpending, importExpenses } = useExpense();
   const { colors } = useTheme();
+
+  // Animation values
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(30)).current;
+
+  // Run entrance animation on mount
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   React.useEffect(() => {
     if (route.params?.item) {
@@ -58,6 +80,31 @@ const Create = ({ navigation, route }) => {
       Alert.alert("Error", "Please fill Amount, Title, and Category first");
       return;
     }
+
+    const expenseAmount = parseFloat(amount);
+    if (isNaN(expenseAmount) || expenseAmount <= 0) {
+      Alert.alert("Error", "Please enter a valid amount greater than 0");
+      return;
+    }
+
+    // Check if adding this expense would exceed the category budget (current period only)
+    const categoryBudget = categoryBudgets[category.name] || 0;
+    if (categoryBudget > 0) {
+      const currentPeriodSpent = getCategorySpending(category.name, true);
+      if (currentPeriodSpent + expenseAmount > categoryBudget) {
+        const remaining = categoryBudget - currentPeriodSpent;
+        Alert.alert(
+          "Budget Exceeded",
+          `This expense would exceed your ${category.name} budget.\n\n` +
+          `Budget: ₹${categoryBudget.toFixed(2)}\n` +
+          `Spent this period: ₹${currentPeriodSpent.toFixed(2)}\n` +
+          `Remaining: ₹${Math.max(remaining, 0).toFixed(2)}\n\n` +
+          `Please enter an amount up to ₹${Math.max(remaining, 0).toFixed(2)}`
+        );
+        return;
+      }
+    }
+
     setShowPaymentModal(true);
   };
 
@@ -78,28 +125,16 @@ const Create = ({ navigation, route }) => {
     const handlePaymentSuccess = () => {
       showPaymentConfirmation(
         async () => {
-          // User confirmed payment - save expense
+          // User confirmed payment - save expense via context (handles DB write)
           setLoading(true);
           try {
-            const result = await expenseAPI.create(
-              title,
-              paymentAmount,
-              category.name,
-              category.icon,
-              category.color
-            );
-
-            if (result.success) {
-              addExpense({ amount, title, category });
-              Alert.alert("Saved!", "Expense tracked successfully");
-              setAmount('');
-              setTitle('');
-              setQrCode('');
-              setFullQrData('');
-              navigation.goBack();
-            } else {
-              Alert.alert("Error", result.message || "Failed to save expense");
-            }
+            await addExpense({ amount: parseFloat(amount), title, category });
+            Alert.alert("Saved!", "Payment completed and expense tracked");
+            setAmount('');
+            setTitle('');
+            setQrCode('');
+            setFullQrData('');
+            setShowPaymentModal(false);
           } catch (error) {
             console.error('Save expense error:', error);
             Alert.alert("Error", "Failed to save expense to database");
@@ -151,56 +186,47 @@ const Create = ({ navigation, route }) => {
       return;
     }
 
-    // Get current spending for this category
-    const categoryExpenses = expenses.filter(exp => exp.category === category.name);
-    const currentSpent = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const categoryBudget = categoryBudgets[category.name] || 0;
     const expenseAmount = parseFloat(amount);
-
-    // Check if adding this expense would exceed the category budget
-    if (categoryBudget > 0 && (currentSpent + expenseAmount) > categoryBudget) {
-      const remaining = categoryBudget - currentSpent;
-      Alert.alert(
-        "Budget Exceeded",
-        "This expense would exceed your " + category.name + " budget.\n\n" +
-        "Budget: Rs." + categoryBudget.toFixed(2) + "\n" +
-        "Spent: Rs." + currentSpent.toFixed(2) + "\n" +
-        "Remaining: Rs." + remaining.toFixed(2) + "\n\n" +
-        "Please enter an amount up to Rs." + remaining.toFixed(2)
-      );
+    if (isNaN(expenseAmount) || expenseAmount <= 0) {
+      Alert.alert("Error", "Please enter a valid amount greater than 0");
       return;
+    }
+
+    // Check if adding this expense would exceed the category budget (current period only)
+    const categoryBudget = categoryBudgets[category.name] || 0;
+    if (categoryBudget > 0) {
+      const currentPeriodSpent = getCategorySpending(category.name, true);
+      if (currentPeriodSpent + expenseAmount > categoryBudget) {
+        const remaining = categoryBudget - currentPeriodSpent;
+        Alert.alert(
+          "Budget Exceeded",
+          `This expense would exceed your ${category.name} budget.\n\n` +
+          `Budget: ₹${categoryBudget.toFixed(2)}\n` +
+          `Spent this period: ₹${currentPeriodSpent.toFixed(2)}\n` +
+          `Remaining: ₹${Math.max(remaining, 0).toFixed(2)}\n\n` +
+          `Please enter an amount up to ₹${Math.max(remaining, 0).toFixed(2)}`
+        );
+        return;
+      }
     }
 
     setLoading(true);
     try {
-      // Save to backend
-      const result = await expenseAPI.create(
-        title,
-        expenseAmount,
-        category.name,
-        category.icon,
-        category.color
+      // Save via context which handles DB write
+      await addExpense({ amount: expenseAmount, title, category });
+
+      Alert.alert(
+        "Success",
+        `${title} - ₹${amount} added to ${category.name}`,
+        [{
+          text: "OK", onPress: () => {
+            setAmount('');
+            setTitle('');
+            setQrCode('');
+            navigation.goBack();
+          }
+        }]
       );
-
-      if (result.success) {
-        // Also update local context for immediate UI update
-        addExpense({ amount, title, category });
-
-        Alert.alert(
-          "Success",
-          title + " - Rs." + amount + " added to " + category.name,
-          [{
-            text: "OK", onPress: () => {
-              setAmount('');
-              setTitle('');
-              setQrCode('');
-              navigation.goBack();
-            }
-          }]
-        );
-      } else {
-        Alert.alert("Error", result.message || "Failed to save expense");
-      }
     } catch (error) {
       console.error('Save expense error:', error);
       Alert.alert("Error", "An unexpected error occurred");
@@ -217,6 +243,31 @@ const Create = ({ navigation, route }) => {
     });
   }
 
+  const handleImportSms = async (expensesArray) => {
+    setLoading(true);
+    setShowSmsScanner(false);
+    try {
+      if (importExpenses) {
+        await importExpenses(expensesArray);
+      } else {
+        // Fallback
+        for (const exp of expensesArray) {
+          await addExpense(exp);
+        }
+      }
+      Alert.alert(
+        "Success", 
+        `${expensesArray.length} expense(s) parsed and imported from SMS!`,
+        [{ text: "OK", onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      console.error('Import error:', error);
+      Alert.alert("Error", "Failed to import SMS expenses");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
@@ -230,12 +281,12 @@ const Create = ({ navigation, route }) => {
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
-          <View style={tailwind`mb-8`}>
-            <Text style={[tailwind`text-3xl font-bold mb-2`, { color: colors.text }]}>New Expense</Text>
-            <Text style={[tailwind`text-base`, { color: colors.textSecondary }]}>
+          <Animated.View style={[tailwind`mb-8`, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <Text style={[tailwind`text-4xl font-bold mb-2 tracking-tight`, { color: colors.text }]}>New Expense</Text>
+            <Text style={[tailwind`text-base font-medium`, { color: colors.textSecondary }]}>
               Track your spending quickly
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Amount */}
           <View style={tailwind`mb-5`}>
@@ -300,12 +351,32 @@ const Create = ({ navigation, route }) => {
           </View>
 
           {/* Action Buttons */}
-          <View style={tailwind`gap-4 mt-2 mb-6`}>
+          <Animated.View style={[tailwind`gap-4 mt-2 mb-6`, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            {/* Scan SMS Button */}
+            <Pressable
+              style={({ pressed }) => [
+                tailwind`rounded-3xl shadow-lg overflow-hidden`,
+                { transform: [{ scale: pressed ? 0.96 : 1 }], elevation: 4 }
+              ]}
+              onPress={() => setShowSmsScanner(true)}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={['#8B5CF6', '#6D28D9']}
+                style={tailwind`p-5 flex-row items-center justify-center`}
+              >
+                <Text style={tailwind`text-2xl mr-3`}>✉️</Text>
+                <Text style={tailwind`text-white text-lg font-bold tracking-wide`}>
+                  Scan SMS For Expenses
+                </Text>
+              </LinearGradient>
+            </Pressable>
+
             {/* Save Only Button */}
             <Pressable
               style={({ pressed }) => [
-                tailwind`rounded-2xl shadow-lg overflow-hidden`,
-                { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                tailwind`rounded-3xl shadow-lg overflow-hidden`,
+                { transform: [{ scale: pressed ? 0.96 : 1 }], elevation: 4 }
               ]}
               onPress={handleSaveOnly}
               disabled={loading}
@@ -314,8 +385,8 @@ const Create = ({ navigation, route }) => {
                 colors={[colors.primary, colors.primaryDark || '#4f46e5']}
                 style={tailwind`p-5 flex-row items-center justify-center`}
               >
-                <Text style={tailwind`text-white text-lg font-bold mr-2`}>💾</Text>
-                <Text style={tailwind`text-white text-lg font-bold`}>
+                <Text style={tailwind`text-2xl mr-3`}>💾</Text>
+                <Text style={tailwind`text-white text-lg font-bold tracking-wide`}>
                   {loading ? 'Saving...' : 'Save Expense'}
                 </Text>
               </LinearGradient>
@@ -324,25 +395,25 @@ const Create = ({ navigation, route }) => {
             {/* Payment Button */}
             <Pressable
               style={({ pressed }) => [
-                tailwind`rounded-2xl shadow-lg overflow-hidden`,
-                { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                tailwind`rounded-3xl shadow-lg overflow-hidden`,
+                { transform: [{ scale: pressed ? 0.96 : 1 }], elevation: 4 }
               ]}
               onPress={handleInitiatePayment}
               disabled={loading}
             >
               <LinearGradient
-                colors={[colors.success, '#059669']}
+                colors={[colors.success || '#10B981', '#059669']}
                 style={tailwind`p-5 flex-row items-center justify-center`}
               >
-                <Text style={tailwind`text-white text-lg font-bold mr-2`}>💳</Text>
-                <Text style={tailwind`text-white text-lg font-bold`}>Pay & Save</Text>
+                <Text style={tailwind`text-2xl mr-3`}>💳</Text>
+                <Text style={tailwind`text-white text-lg font-bold tracking-wide`}>Pay & Save</Text>
               </LinearGradient>
             </Pressable>
-          </View>
+          </Animated.View>
 
-          <Text style={[tailwind`text-xs text-center mt-4`, { color: colors.textTertiary }]}>
+          <Animated.Text style={[tailwind`text-xs text-center font-medium mt-2`, { color: colors.textTertiary, opacity: fadeAnim }]}>
             Payment opens UPI apps like Google Pay, PhonePe, Paytm
-          </Text>
+          </Animated.Text>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -449,6 +520,13 @@ const Create = ({ navigation, route }) => {
           onClose={() => setShowQRScanner(false)}
         />
       </Modal>
+
+      {/* SMS Scanner Modal */}
+      <SmsScannerModal 
+        visible={showSmsScanner}
+        onClose={() => setShowSmsScanner(false)}
+        onImport={handleImportSms}
+      />
     </SafeAreaView>
   )
 }

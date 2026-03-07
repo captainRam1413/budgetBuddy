@@ -87,17 +87,7 @@ const Onboarding = ({ navigation, route }) => {
           budget: parseFloat(cat.budget) || 0
         }));
 
-      // 3. Create categories in backend
-      if (categoriesToCreate.length > 0) {
-        const categoryResult = await categoryAPI.createMultiple(categoriesToCreate);
-        if (!categoryResult.success) {
-          Alert.alert('Error', categoryResult.message || 'Failed to create categories');
-          setLoading(false);
-          return;
-        }
-      }
-
-      // 4. Complete onboarding in backend
+      // 3. Complete onboarding in backend
       const onboardingResult = await userAPI.completeOnboarding();
       if (!onboardingResult.success) {
         Alert.alert('Error', onboardingResult.message || 'Failed to complete onboarding');
@@ -105,7 +95,7 @@ const Onboarding = ({ navigation, route }) => {
         return;
       }
 
-      // 5. Update local context (for immediate UI updates)
+      // 4. Update local context (for immediate UI updates)
       setUser({
         name: userName,
         email: userEmail,
@@ -113,14 +103,13 @@ const Onboarding = ({ navigation, route }) => {
       });
       setBudget(budgetAmount);
 
-      const validCategories = categories
-        .filter(cat => cat.name && cat.name.trim())
-        .map(cat => ({
-          name: cat.name.trim(),
-          icon: cat.icon,
-          color: cat.color
-        }));
-      addMultipleCategories(validCategories);
+      if (categoriesToCreate.length > 0) {
+        const createResult = await addMultipleCategories(categoriesToCreate);
+        if (!createResult.success) {
+          Alert.alert('Error', createResult.message || 'Failed to save categories');
+          // Non-fatal, we continue
+        }
+      }
 
       const budgetsToSet = {};
       categories.forEach(cat => {

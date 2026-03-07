@@ -8,7 +8,7 @@ import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
 
 const Category = ({ navigation, route }) => {
-    const { getAllCategories, addCustomCategory, categoryBudgets, getCategorySpending } = useExpense();
+    const { getAllCategories, addCustomCategory, categoryBudgets, getCategorySpending, budgetPeriod } = useExpense();
     const { colors } = useTheme();
     const [showAddModal, setShowAddModal] = React.useState(false);
     const [newCategoryName, setNewCategoryName] = React.useState('');
@@ -23,7 +23,8 @@ const Category = ({ navigation, route }) => {
 
     const renderItem = ({ item }) => {
         const budget = categoryBudgets[item.name] || 0;
-        const spent = getCategorySpending(item.name);
+        // Use current period spending so budget bars reset each term
+        const spent = getCategorySpending(item.name, true);
         const remaining = budget - spent;
         const percentage = budget > 0 ? (spent / budget) * 100 : 0;
 
@@ -89,13 +90,13 @@ const Category = ({ navigation, route }) => {
         }
     }
 
-    const handleAddCategory = () => {
+    const handleAddCategory = async () => {
         if (!newCategoryName.trim()) {
             alert('Please enter a category name');
             return;
         }
 
-        const result = addCustomCategory({
+        const result = await addCustomCategory({
             name: newCategoryName.trim(),
             icon: selectedIcon,
             color: selectedColor

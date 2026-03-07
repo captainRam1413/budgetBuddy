@@ -3,15 +3,14 @@ import React, { useState } from 'react';
 import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
-import { expenseAPI } from '../services/appwriteAPI';
 
 const ExpenseDetails = ({ navigation, route }) => {
   const { colors } = useTheme();
   const { updateExpense, deleteExpense } = useExpense();
-  
+
   // Store initial expense from route params on first mount
   const [initialExpense] = useState(route.params?.expense);
-  
+
   const [amount, setAmount] = useState(initialExpense?.amount.toString() || '');
   const [title, setTitle] = useState(initialExpense?.title || '');
   const [category, setCategory] = useState({
@@ -21,7 +20,7 @@ const ExpenseDetails = ({ navigation, route }) => {
   });
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  
+
   // Safety check on mount only
   React.useEffect(() => {
     if (!initialExpense) {
@@ -59,32 +58,18 @@ const ExpenseDetails = ({ navigation, route }) => {
 
     setLoading(true);
     try {
-      // Update in backend
-      const result = await expenseAPI.update(
-        initialExpense.id,
+      // updateExpense in context handles both local state + DB update
+      await updateExpense(initialExpense.id, {
         title,
-        updatedAmount,
-        category.name,
-        category.icon,
-        category.color
-      );
+        amount: updatedAmount,
+        category: category.name,
+        icon: category.icon,
+        color: category.color
+      });
 
-      if (result.success) {
-        // Update local context
-        updateExpense(initialExpense.id, {
-          title,
-          amount: updatedAmount,
-          category: category.name,
-          icon: category.icon,
-          color: category.color
-        });
-
-        Alert.alert('Success', 'Expense updated successfully', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
-      } else {
-        Alert.alert('Error', result.message || 'Failed to update expense');
-      }
+      Alert.alert('Success', 'Expense updated successfully', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
     } catch (error) {
       console.error('Update expense error:', error);
       Alert.alert('Error', 'Failed to update expense');
@@ -105,16 +90,11 @@ const ExpenseDetails = ({ navigation, route }) => {
           onPress: async () => {
             setLoading(true);
             try {
-              const result = await expenseAPI.delete(initialExpense.id);
-              
-              if (result.success) {
-                deleteExpense(initialExpense.id);
-                Alert.alert('Success', 'Expense deleted successfully', [
-                  { text: 'OK', onPress: () => navigation.goBack() }
-                ]);
-              } else {
-                Alert.alert('Error', result.message || 'Failed to delete expense');
-              }
+              // deleteExpense in context handles both local state + DB delete
+              await deleteExpense(initialExpense.id);
+              Alert.alert('Success', 'Expense deleted successfully', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+              ]);
             } catch (error) {
               console.error('Delete expense error:', error);
               Alert.alert('Error', 'Failed to delete expense');
@@ -128,19 +108,19 @@ const ExpenseDetails = ({ navigation, route }) => {
   };
 
   const handleCategoryInput = () => {
-    navigation.navigate('Category', { 
+    navigation.navigate('Category', {
       fromScreen: 'ExpenseDetails'
     });
   };
 
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={tailwind`flex-1`}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={tailwind`p-6 pb-24`}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -165,20 +145,20 @@ const ExpenseDetails = ({ navigation, route }) => {
           {/* Amount */}
           <View style={tailwind`mb-5`}>
             <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>💵 Amount</Text>
-            <TextInput 
-              placeholder="₹0.00" 
+            <TextInput
+              placeholder="₹0.00"
               placeholderTextColor={colors.placeholder}
               keyboardType="numeric"
               returnKeyType="next"
               blurOnSubmit={false}
               editable={isEditing}
-              style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, { 
+              style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, {
                 backgroundColor: isEditing ? colors.input : colors.surface,
                 borderWidth: 1,
                 borderColor: colors.border,
                 color: colors.text,
                 opacity: isEditing ? 1 : 0.7
-              }]} 
+              }]}
               value={amount}
               onChangeText={setAmount}
             />
@@ -192,18 +172,18 @@ const ExpenseDetails = ({ navigation, route }) => {
           {/* Title */}
           <View style={tailwind`mb-5`}>
             <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📝 Description</Text>
-            <TextInput 
-              placeholder="e.g., Grocery Shopping" 
+            <TextInput
+              placeholder="e.g., Grocery Shopping"
               placeholderTextColor={colors.placeholder}
               returnKeyType="done"
               editable={isEditing}
-              style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, { 
+              style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, {
                 backgroundColor: isEditing ? colors.input : colors.surface,
                 borderWidth: 1,
                 borderColor: colors.border,
                 color: colors.text,
                 opacity: isEditing ? 1 : 0.7
-              }]} 
+              }]}
               value={title}
               onChangeText={setTitle}
             />
@@ -212,7 +192,7 @@ const ExpenseDetails = ({ navigation, route }) => {
           {/* Category */}
           <View style={tailwind`mb-8`}>
             <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📊 Category</Text>
-            <Pressable 
+            <Pressable
               onPress={isEditing ? handleCategoryInput : null}
               disabled={!isEditing}
               style={[tailwind`p-4 rounded-2xl flex-row justify-between items-center shadow-sm`, {
@@ -223,8 +203,8 @@ const ExpenseDetails = ({ navigation, route }) => {
               }]}
             >
               <View style={tailwind`flex-row items-center`}>
-                <View style={[tailwind`w-10 h-10 rounded-xl items-center justify-center mr-3`, { 
-                  backgroundColor: category.color ? category.color + '30' : colors.border 
+                <View style={[tailwind`w-10 h-10 rounded-xl items-center justify-center mr-3`, {
+                  backgroundColor: category.color ? category.color + '30' : colors.border
                 }]}>
                   <Text style={tailwind`text-xl`}>{category.icon || '🎯'}</Text>
                 </View>
@@ -243,8 +223,8 @@ const ExpenseDetails = ({ navigation, route }) => {
             <View>
               <Pressable
                 style={({ pressed }) => [
-                  tailwind`p-5 rounded-2xl mb-3 shadow-lg`, 
-                  { 
+                  tailwind`p-5 rounded-2xl mb-3 shadow-lg`,
+                  {
                     backgroundColor: colors.primary,
                     opacity: pressed ? 0.8 : 1,
                     transform: [{ scale: pressed ? 0.98 : 1 }]
@@ -260,8 +240,8 @@ const ExpenseDetails = ({ navigation, route }) => {
 
               <Pressable
                 style={({ pressed }) => [
-                  tailwind`p-5 rounded-2xl shadow-lg`, 
-                  { 
+                  tailwind`p-5 rounded-2xl shadow-lg`,
+                  {
                     backgroundColor: colors.border,
                     opacity: pressed ? 0.8 : 1,
                     transform: [{ scale: pressed ? 0.98 : 1 }]
@@ -287,8 +267,8 @@ const ExpenseDetails = ({ navigation, route }) => {
           ) : (
             <Pressable
               style={({ pressed }) => [
-                tailwind`p-5 rounded-2xl shadow-lg`, 
-                { 
+                tailwind`p-5 rounded-2xl shadow-lg`,
+                {
                   backgroundColor: colors.error || '#ef4444',
                   opacity: pressed ? 0.8 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }]

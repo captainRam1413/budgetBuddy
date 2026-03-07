@@ -683,7 +683,7 @@ export const expenseAPI = {
     }
   },
 
-  update: async (expenseId, title, amount, category, icon, color, date) => {
+  update: async (expenseId, title, amount, category, icon, color, date, type) => {
     try {
       const userId = await getCurrentUserId();
       if (!userId) {
@@ -700,6 +700,10 @@ export const expenseAPI = {
 
       if (date) {
         updateData.date = date;
+      }
+      
+      if (type) {
+        updateData.type = type;
       }
 
       const expense = await databases.updateDocument(
