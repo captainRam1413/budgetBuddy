@@ -78,7 +78,7 @@ const PDFExportScreen = ({ navigation }) => {
     // Given the user constraint "keep income in export pdf same as total budget", 
     // let's apply that logic here too for consistency in the UI.
 
-    const displayIncome = viewMode === 'monthly' ? totalBudget : expenses.reduce((sum, exp) => isIncome(exp) ? sum + Math.abs(exp.amount) : sum, 0);
+    const displayIncome = viewMode === 'monthly' ? totalBudget : expenses.reduce((sum, exp) => isIncome(exp) ? sum + Math.abs(parseFloat(exp.amount) || 0) : sum, 0);
 
     // If totalBudget is 0 and we have no income transactions, it's 0.
     // If user wants "Income" to be "Budget", then:
@@ -89,7 +89,7 @@ const PDFExportScreen = ({ navigation }) => {
     const incomeValue = totalBudget;
 
     // Calculate total expense (excluding income-tagged transactions to avoid double counting if any)
-    const totalExpense = filteredExpenses.reduce((sum, exp) => !isIncome(exp) ? sum + Math.abs(exp.amount) : sum, 0);
+    const totalExpense = filteredExpenses.reduce((sum, exp) => !isIncome(exp) ? sum + Math.abs(parseFloat(exp.amount) || 0) : sum, 0);
 
     const balance = incomeValue - totalExpense;
 

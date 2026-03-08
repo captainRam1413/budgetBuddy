@@ -172,7 +172,7 @@ export default function AppNavigator(params) {
                 // Load user data only when authentication state changes to true
                 if (authenticated && !hasLoadedDataRef.current) {
                     console.log('🔄 Loading user data from backend...');
-                    await loadUserData();
+                    await loadUserData(true); // Force recalculation on initial load
                     hasLoadedDataRef.current = true;
                     setHasLoadedData(true);
                 }

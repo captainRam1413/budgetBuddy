@@ -22,9 +22,9 @@ const Category = ({ navigation, route }) => {
     const preservedTitle = route.params?.preservedTitle;
 
     const renderItem = ({ item }) => {
-        const budget = categoryBudgets[item.name] || 0;
+        const budget = Number(categoryBudgets[item.name]) || 0;
         // Use current period spending so budget bars reset each term
-        const spent = getCategorySpending(item.name, true);
+        const spent = Number(getCategorySpending(item.name, true)) || 0;
         const remaining = budget - spent;
         const percentage = budget > 0 ? (spent / budget) * 100 : 0;
 

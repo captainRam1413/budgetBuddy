@@ -34,7 +34,7 @@ const generateExpenseReportHTML = ({ expenses, totalBudget, budgetPeriod, userDa
   // Calculate actual total expense (excluding income transactions)
   sortedExpenses.forEach(exp => {
     if (!isIncome(exp)) {
-      totalExpense += exp.amount;
+      totalExpense += Number(exp.amount) || 0;
     }
   });
 
@@ -43,7 +43,7 @@ const generateExpenseReportHTML = ({ expenses, totalBudget, budgetPeriod, userDa
 
   const expenseRows = sortedExpenses.map((exp, index) => {
     const isCredit = isIncome(exp);
-    const amount = exp.amount;
+    const amount = Number(exp.amount) || 0;
     const date = new Date(exp.date).toLocaleDateString('en-GB', {
       day: '2-digit', month: 'short', year: 'numeric'
     });
@@ -216,7 +216,7 @@ export const exportExpensesAsCSV = async ({ expenses, userData }) => {
       const date = new Date(exp.date).toLocaleDateString('en-IN');
       const title = `"${(exp.title || '').replace(/"/g, '""')}"`;
       const category = `"${exp.category}"`;
-      csv += `${date},${title},${category},${exp.amount.toFixed(2)}\n`;
+      csv += `${date},${title},${category},${Number(exp.amount || 0).toFixed(2)}\n`;
     });
 
     // Generate a simple HTML page with the CSV data and print as PDF

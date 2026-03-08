@@ -1,9 +1,11 @@
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, Pressable, Animated } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, SafeAreaView, Pressable, Animated, Easing } from 'react-native'
 import React, { useMemo, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient';
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
 import tailwind from 'twrnc'
+import AnimatedCard from '../components/AnimatedCard';
+import { SkeletonLoader, StatCardSkeleton } from '../components/SkeletonLoader';
 
 const Insights = () => {
   const {
@@ -16,31 +18,90 @@ const Insights = () => {
   } = useExpense()
   const { colors, isDarkMode } = useTheme()
 
+  // Ensure numeric values
+  const totalBudgetNum = Number(totalBudget) || 0;
+
   // Period selection state
   const [selectedPeriodOffset, setSelectedPeriodOffset] = useState(0) // 0 = current, -1 = previous, etc.
 
-  // Animation values
+  // Animation System
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(30)).current;
+  const headerScale = React.useRef(new Animated.Value(0.95)).current;
+  const statsSlide = React.useRef(new Animated.Value(50)).current;
+  const cardsSlide = React.useRef(new Animated.Value(70)).current;
+  const chartReveal = React.useRef(new Animated.Value(0)).current;
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
   // Run entrance animation on mount and when period changes
   React.useEffect(() => {
     fadeAnim.setValue(0);
     slideAnim.setValue(30);
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
+    headerScale.setValue(0.95);
+    statsSlide.setValue(50);
+    cardsSlide.setValue(70);
+    chartReveal.setValue(0);
+
+    // Simple pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.02,
+          duration: 2000,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Staggered entrance animation
+    Animated.stagger(100, [
+      Animated.parallel([
+        Animated.spring(headerScale, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 600,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+      ]),
       Animated.spring(slideAnim, {
         toValue: 0,
-        friction: 8,
-        tension: 40,
+        friction: 9,
+        tension: 45,
         useNativeDriver: true,
-      })
+      }),
+      Animated.spring(statsSlide, {
+        toValue: 0,
+        friction: 9,
+        tension: 45,
+        useNativeDriver: true,
+      }),
+      Animated.spring(cardsSlide, {
+        toValue: 0,
+        friction: 9,
+        tension: 45,
+        useNativeDriver: true,
+      }),
+      Animated.timing(chartReveal, {
+        toValue: 1,
+        duration: 800,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [fadeAnim, slideAnim, selectedPeriodOffset]);
+  }, [selectedPeriodOffset]);
 
   // Get the date range for selected period
   const getSelectedPeriodRange = () => {
@@ -134,13 +195,15 @@ const Insights = () => {
   // Calculate period analytics
   const periodAnalytics = useMemo(() => {
     const daysInPeriod = budgetPeriod === 'weekly' ? 7 : 30
-    const dailyAverage = periodExpenses.length > 0 ? periodSpent / daysInPeriod : 0
-    const remaining = totalBudget - periodSpent
-    const savingsRate = totalBudget > 0 ? (remaining / totalBudget) * 100 : 0
-    const utilizationRate = totalBudget > 0 ? (periodSpent / totalBudget) * 100 : 0
+    const periodSpentNum = Number(periodSpent) || 0
+    const totalBudgetNumber = Number(totalBudgetNum) || 0
+    const dailyAverage = periodExpenses.length > 0 ? Number(periodSpentNum / daysInPeriod) : 0
+    const remaining = totalBudgetNumber - periodSpentNum
+    const savingsRate = totalBudgetNumber > 0 ? Number((remaining / totalBudgetNumber) * 100) : 0
+    const utilizationRate = totalBudgetNumber > 0 ? Number((periodSpentNum / totalBudgetNumber) * 100) : 0
 
     return {
-      spent: periodSpent,
+      spent: periodSpentNum,
       remaining: Math.max(remaining, 0),
       savings: remaining > 0 ? remaining : 0,
       overBudget: remaining < 0 ? Math.abs(remaining) : 0,
@@ -151,7 +214,7 @@ const Insights = () => {
       daysInPeriod,
       isOverBudget: remaining < 0
     }
-  }, [periodExpenses, periodSpent, totalBudget, budgetPeriod])
+  }, [periodExpenses, periodSpent, totalBudgetNum, budgetPeriod])
 
   // Calculate category-wise spending (period-specific)
   const categoryStats = useMemo(() => {
@@ -178,14 +241,15 @@ const Insights = () => {
     // Convert to array and add percentage + budget info
     const categoryArray = Object.keys(stats).map(category => {
       const budgetStatus = getCategoryBudgetStatus(category, true);
-      const categoryAmount = stats[category].amount;
+      const categoryAmount = Number(stats[category].amount) || 0;
 
       // Calculate percentage: if budget exists, show % of budget used, otherwise % of total spending
       let percentage;
-      if (budgetStatus.budget > 0) {
-        percentage = (categoryAmount / budgetStatus.budget) * 100;
+      const budgetAmount = Number(budgetStatus.budget) || 0;
+      if (budgetAmount > 0) {
+        percentage = Number((categoryAmount / budgetAmount) * 100);
       } else {
-        percentage = total > 0 ? (categoryAmount / total) * 100 : 0;
+        percentage = total > 0 ? Number((categoryAmount / total) * 100) : 0;
       }
 
       return {
@@ -195,8 +259,8 @@ const Insights = () => {
         color: stats[category].color,
         icon: stats[category].icon,
         percentage: percentage,
-        budget: budgetStatus.budget,
-        budgetRemaining: budgetStatus.remaining,
+        budget: budgetAmount,
+        budgetRemaining: Number(budgetStatus.remaining) || 0,
         isOverBudget: budgetStatus.isOverBudget
       };
     })
@@ -290,16 +354,20 @@ const Insights = () => {
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
       <ScrollView style={[tailwind`flex-1`, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark || '#4f46e5']}
-          style={tailwind`p-6 pb-12 rounded-b-3xl shadow-lg`}
-        >
-          <Text style={tailwind`text-3xl font-bold text-white`}>Insights</Text>
-          <Text style={tailwind`text-white opacity-90 mt-1`}>
-            {budgetPeriod === 'weekly' ? 'Weekly' : 'Monthly'} Budget Analysis
-          </Text>
-        </LinearGradient>
+        {/* Modern Header */}
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          <LinearGradient
+            colors={[colors.primary || '#6366F1', colors.primaryDark || '#4F46E5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={tailwind`px-6 pt-6 pb-10`}
+          >
+            <Text style={tailwind`text-white text-3xl font-bold tracking-tight`}>Analytics</Text>
+            <Text style={tailwind`text-white text-sm opacity-80 mt-1`}>
+              Track your spending patterns
+            </Text>
+          </LinearGradient>
+        </Animated.View>
 
         {/* Period Selector */}
         <View style={[tailwind`mx-5 -mt-8 mb-3 p-4 rounded-2xl shadow-lg`, { backgroundColor: colors.surface }]}>
@@ -365,7 +433,7 @@ const Insights = () => {
                 <Text style={[tailwind`text-xs mt-1`, {
                   color: periodAnalytics.isOverBudget ? 'rgba(255,255,255,0.8)' : colors.textTertiary
                 }]}>
-                  of ₹{totalBudget.toFixed(0)} budget
+                  of ₹{totalBudgetNum.toFixed(0)} budget
                 </Text>
               </View>
               <View style={[tailwind`w-20 h-20 rounded-full items-center justify-center`, {
@@ -384,7 +452,7 @@ const Insights = () => {
               backgroundColor: periodAnalytics.isOverBudget ? 'rgba(255,255,255,0.3)' : colors.borderLight
             }]}>
               <View style={[tailwind`h-full`, {
-                width: `${Math.min(periodAnalytics.utilizationRate, 100)}%`,
+                width: `${Math.min(Number(periodAnalytics.utilizationRate), 100)}%`,
                 backgroundColor: periodAnalytics.isOverBudget ? '#fff' :
                   periodAnalytics.utilizationRate > 80 ? colors.warning : colors.success
               }]} />
@@ -439,7 +507,7 @@ const Insights = () => {
         </View>
 
         {/* Budget Summary */}
-        {totalBudget > 0 && (
+        {totalBudgetNum > 0 && (
           <View style={[tailwind`mx-5 p-4 rounded-2xl mb-6`, { backgroundColor: colors.surface }]}>
             <Text style={[tailwind`text-base font-bold mb-3`, { color: colors.text }]}>
               💼 Budget Summary
@@ -447,7 +515,7 @@ const Insights = () => {
             <View style={tailwind`gap-2`}>
               <View style={tailwind`flex-row justify-between`}>
                 <Text style={[tailwind`text-sm`, { color: colors.textSecondary }]}>Total Budget</Text>
-                <Text style={[tailwind`text-sm font-bold`, { color: colors.text }]}>₹{totalBudget.toFixed(0)}</Text>
+                <Text style={[tailwind`text-sm font-bold`, { color: colors.text }]}>₹{totalBudgetNum.toFixed(0)}</Text>
               </View>
               <View style={tailwind`flex-row justify-between`}>
                 <Text style={[tailwind`text-sm`, { color: colors.textSecondary }]}>Spent</Text>
@@ -564,7 +632,7 @@ const Insights = () => {
                 <View style={[tailwind`h-2 rounded-full overflow-hidden`, { backgroundColor: colors.borderLight }]}>
                   <View
                     style={{
-                      width: `${Math.min((category.amount / category.budget) * 100, 100)}%`,
+                      width: `${Math.min(Number((category.amount / category.budget) * 100), 100)}%`,
                       height: '100%',
                       borderRadius: 4,
                       backgroundColor: category.isOverBudget ? colors.error : category.color
@@ -575,7 +643,7 @@ const Insights = () => {
                 <View style={[tailwind`h-2 rounded-full overflow-hidden`, { backgroundColor: colors.borderLight }]}>
                   <View
                     style={{
-                      width: `${Math.min(category.percentage, 100)}%`,
+                      width: `${Math.min(Number(category.percentage), 100)}%`,
                       height: '100%',
                       borderRadius: 4,
                       backgroundColor: category.color

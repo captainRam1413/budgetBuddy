@@ -12,8 +12,8 @@ export function ExpenseProvider({ children }) {
   const [categoryBudgets, setCategoryBudgets] = useState({});
   const [customCategories, setCustomCategories] = useState([]);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [userData, setUserData] = useState({ name: '', email: '', phone: '' });
-  const [isLoading, setIsLoading] = useState(false);
+  const [userData, setUserData] = useState({ id: '', $id: '', $createdAt: '', $updatedAt: '', name: '', email: '', phone: '', totalBudget: 0 });
+  const [isLoading, setIsLoading] = useState(true); // Start with true to show skeleton
   const [budgetPeriod, setBudgetPeriod] = useState('monthly'); // 'weekly' or 'monthly'
   const [periodStartDate, setPeriodStartDate] = useState(new Date().toISOString());
 
@@ -49,37 +49,57 @@ export function ExpenseProvider({ children }) {
   // Calculate Total Income for current period (Added Funds)
   const getIncomeForCurrentPeriod = () => {
     const periodStart = getPeriodStartDate();
-    return expenses
+    const income = expenses
       .filter(exp => {
         const expenseDate = new Date(exp.date);
         return expenseDate >= periodStart && isIncome(exp);
       })
       .reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+    
+    // Ensure it's always a valid number
+    return Number.isFinite(income) ? income : 0;
   };
 
   // Effective Total Budget = Base (DB) + Income (Current Period)
-  const totalBudget = baseBudget + getIncomeForCurrentPeriod();
+  const totalBudgetCalc = Number(baseBudget) + Number(getIncomeForCurrentPeriod());
+  const totalBudget = Number.isFinite(totalBudgetCalc) ? totalBudgetCalc : 0;
 
-  // Load all user data from backend
-  const loadUserData = async () => {
+  // Load all user data from backend with forced recalculation
+  const loadUserData = async (forceRecalculate = true) => {
     setIsLoading(true);
+    
     try {
-      // 1. Load user profile
+      // STEP 1: Load user profile with strict type conversion (no state reset - let backend data update state directly)
       const profileResult = await userAPI.getProfile();
       if (profileResult.success) {
         const user = profileResult.user;
+        const totalBudgetNum = Number(parseFloat(user.totalBudget) || 0);
+        
+        // Validate budget is a proper number
+        if (!Number.isFinite(totalBudgetNum)) {
+          console.error('❌ Invalid budget from backend:', user.totalBudget);
+          setBaseBudget(0);
+        } else {
+          setBaseBudget(totalBudgetNum);
+          console.log('✅ Base budget loaded:', totalBudgetNum, 'type:', typeof totalBudgetNum);
+        }
+        
         setUserData({
+          id: user.id,
+          $id: user.$id,
+          $createdAt: user.$createdAt,
+          $updatedAt: user.$updatedAt,
           name: user.name,
           email: user.email,
-          phone: user.phone
+          phone: user.phone,
+          totalBudget: totalBudgetNum
         });
-        setBaseBudget(user.totalBudget || 0);
         setHasCompletedOnboarding(user.hasCompletedOnboarding || false);
         setBudgetPeriod(user.budgetPeriod || 'monthly');
         setPeriodStartDate(user.periodStartDate || new Date().toISOString());
       }
 
-      // 2. Load categories
+      // STEP 2: Load categories with strict type conversion
       const categoriesResult = await categoryAPI.getAll();
       if (categoriesResult.success) {
         const cats = categoriesResult.categories.map(cat => ({
@@ -89,31 +109,58 @@ export function ExpenseProvider({ children }) {
         }));
         setCustomCategories(cats);
 
-        // Load category budgets
+        // Load category budgets with validation
         const budgets = {};
         categoriesResult.categories.forEach(cat => {
-          budgets[cat.name] = cat.budget || 0;
+          const budgetNum = Number(parseFloat(cat.budget) || 0);
+          if (!Number.isFinite(budgetNum)) {
+            console.warn('⚠️ Invalid category budget:', cat.name, cat.budget);
+            budgets[cat.name] = 0;
+          } else {
+            budgets[cat.name] = budgetNum;
+          }
         });
         setCategoryBudgets(budgets);
+        console.log('✅ Category budgets loaded:', Object.keys(budgets).length, 'categories');
       }
 
-      // 3. Load expenses
+      // STEP 3: Load expenses with strict type conversion and validation
       const expensesResult = await expenseAPI.getAll();
       if (expensesResult.success) {
-        const exps = expensesResult.expenses.map(exp => ({
-          id: exp.id,
-          title: exp.title,
-          amount: exp.amount,
-          category: exp.category,
-          date: exp.date,
-          color: exp.color,
-          icon: exp.icon,
-          type: exp.type || 'debit' // Load type
-        }));
+        const exps = expensesResult.expenses.map(exp => {
+          const amountNum = Number(parseFloat(exp.amount) || 0);
+          
+          // Validate amount is a proper number
+          if (!Number.isFinite(amountNum)) {
+            console.warn('⚠️ Invalid amount in expense:', exp.id, 'amount:', exp.amount, 'type:', typeof exp.amount);
+            return {
+              id: exp.id,
+              title: exp.title,
+              amount: 0, // Fallback to 0 for invalid amounts
+              category: exp.category,
+              date: exp.date,
+              color: exp.color,
+              icon: exp.icon,
+              type: exp.type || 'debit'
+            };
+          }
+          
+          return {
+            id: exp.id,
+            title: exp.title,
+            amount: amountNum,
+            category: exp.category,
+            date: exp.date,
+            color: exp.color,
+            icon: exp.icon,
+            type: exp.type || 'debit'
+          };
+        });
         setExpenses(exps);
+        console.log('✅ Expenses loaded:', exps.length, 'transactions');
       }
 
-      console.log('✅ User data loaded from backend');
+      console.log('✅ User data loaded and recalculated successfully');
       return { success: true };
     } catch (error) {
       console.error('❌ Failed to load user data:', error);
@@ -376,7 +423,7 @@ export function ExpenseProvider({ children }) {
 
   // Set category budget
   const setCategoryBudget = async (categoryName, amount) => {
-    const budgetAmount = parseFloat(amount) || 0;
+    const budgetAmount = Number(parseFloat(amount)) || 0;
     setCategoryBudgets(prev => ({
       ...prev,
       [categoryName]: budgetAmount
@@ -391,15 +438,19 @@ export function ExpenseProvider({ children }) {
 
   // Set batch category budgets
   const setBatchCategoryBudgets = (budgetsObject) => {
+    const parsedBudgets = {};
+    Object.keys(budgetsObject).forEach(key => {
+      parsedBudgets[key] = Number(budgetsObject[key]) || 0;
+    });
     setCategoryBudgets(prev => ({
       ...prev,
-      ...budgetsObject
+      ...parsedBudgets
     }));
   };
 
   // Set total budget (Base)
   const setBudget = (amount) => {
-    const newBudget = parseFloat(amount) || 0;
+    const newBudget = Number(parseFloat(amount)) || 0;
     setBaseBudget(newBudget);
 
     try {
@@ -438,24 +489,30 @@ export function ExpenseProvider({ children }) {
   // Get spending by category
   const getCategorySpending = (categoryName, useCurrentPeriod = false) => {
     const expensesToUse = useCurrentPeriod ? getExpensesForCurrentPeriod() : expenses;
-    return expensesToUse
+    const spending = expensesToUse
       .filter(exp => exp.category === categoryName && !isIncome(exp))
-      .reduce((sum, exp) => sum + exp.amount, 0);
+      .reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+    
+    // Ensure it's always a valid number
+    return Number.isFinite(spending) ? spending : 0;
   };
 
   // Get total spending
   const getTotalSpending = (useCurrentPeriod = false) => {
     const expensesToUse = useCurrentPeriod ? getExpensesForCurrentPeriod() : expenses;
-    return expensesToUse
+    const spending = expensesToUse
       .filter(exp => !isIncome(exp))
-      .reduce((sum, exp) => sum + exp.amount, 0);
+      .reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+    
+    // Ensure it's always a valid number
+    return Number.isFinite(spending) ? spending : 0;
   };
 
   // Get budget status
   const getCategoryBudgetStatus = (categoryName) => {
-    const budget = categoryBudgets[categoryName] || 0;
+    const budget = Number(categoryBudgets[categoryName]) || 0;
     // Use current period spending so it resets with each new week/month
-    const spent = getCategorySpending(categoryName, true);
+    const spent = Number(getCategorySpending(categoryName, true)) || 0;
     const remaining = budget - spent;
     const percentage = budget > 0 ? (spent / budget) * 100 : 0;
 

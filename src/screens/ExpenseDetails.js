@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
+import { formatDateTime } from '../helper';
 
 const ExpenseDetails = ({ navigation, route }) => {
   const { colors } = useTheme();
@@ -138,7 +139,7 @@ const ExpenseDetails = ({ navigation, route }) => {
               )}
             </View>
             <Text style={[tailwind`text-base`, { color: colors.textSecondary }]}>
-              {initialExpense.date}
+              {formatDateTime(initialExpense.date)}
             </Text>
           </View>
 

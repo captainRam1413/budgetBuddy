@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View, TextInput, Pressable, Alert, Modal, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Animated } from 'react-native'
+import { ScrollView, StyleSheet, Text, View, TextInput, Pressable, Alert, Modal, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Animated, Easing } from 'react-native'
 import React from 'react'
 import { LinearGradient } from 'expo-linear-gradient';
 import tailwind from 'twrnc'
@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import QRScanner from '../components/QRScanner'
 import SmsScannerModal from '../components/SmsScannerModal'
 import { initiateQrPayment, initiateManualPayment, showPaymentConfirmation } from '../services/paymentService'
+import AnimatedButton from '../components/AnimatedButton';
 
 const Create = ({ navigation, route }) => {
   const [amount, setAmount] = React.useState('');
@@ -21,26 +22,88 @@ const Create = ({ navigation, route }) => {
   const { addExpense, categoryBudgets, getCategorySpending, importExpenses } = useExpense();
   const { colors } = useTheme();
 
-  // Animation values
+  // Enhanced Animation values
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(30)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
+  const amountScale = React.useRef(new Animated.Value(1)).current;
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const formSlide = React.useRef(new Animated.Value(50)).current;
+  const buttonSlide = React.useRef(new Animated.Value(80)).current;
 
-  // Run entrance animation on mount
+  // Run sophisticated entrance animations on mount
   React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
+    // Pulse animation for amount field
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.03,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Staggered entrance
+    Animated.stagger(80, [
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]),
       Animated.spring(slideAnim, {
         toValue: 0,
-        friction: 8,
-        tension: 40,
+        friction: 9,
+        tension: 45,
         useNativeDriver: true,
-      })
+      }),
+      Animated.spring(formSlide, {
+        toValue: 0,
+        friction: 9,
+        tension: 45,
+        useNativeDriver: true,
+      }),
+      Animated.spring(buttonSlide, {
+        toValue: 0,
+        friction: 9,
+        tension: 45,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [fadeAnim, slideAnim]);
+  }, []);
+
+  // Amount field animation on change
+  React.useEffect(() => {
+    if (amount) {
+      Animated.sequence([
+        Animated.spring(amountScale, {
+          toValue: 1.05,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+        Animated.spring(amountScale, {
+          toValue: 1,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [amount]);
 
   React.useEffect(() => {
     if (route.params?.item) {
@@ -88,9 +151,9 @@ const Create = ({ navigation, route }) => {
     }
 
     // Check if adding this expense would exceed the category budget (current period only)
-    const categoryBudget = categoryBudgets[category.name] || 0;
+    const categoryBudget = Number(categoryBudgets[category.name]) || 0;
     if (categoryBudget > 0) {
-      const currentPeriodSpent = getCategorySpending(category.name, true);
+      const currentPeriodSpent = Number(getCategorySpending(category.name, true)) || 0;
       if (currentPeriodSpent + expenseAmount > categoryBudget) {
         const remaining = categoryBudget - currentPeriodSpent;
         Alert.alert(
@@ -193,9 +256,9 @@ const Create = ({ navigation, route }) => {
     }
 
     // Check if adding this expense would exceed the category budget (current period only)
-    const categoryBudget = categoryBudgets[category.name] || 0;
+    const categoryBudget = Number(categoryBudgets[category.name]) || 0;
     if (categoryBudget > 0) {
-      const currentPeriodSpent = getCategorySpending(category.name, true);
+      const currentPeriodSpent = Number(getCategorySpending(category.name, true)) || 0;
       if (currentPeriodSpent + expenseAmount > categoryBudget) {
         const remaining = categoryBudget - currentPeriodSpent;
         Alert.alert(
@@ -276,82 +339,110 @@ const Create = ({ navigation, route }) => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
-          contentContainerStyle={tailwind`p-6 pb-24`}
+          contentContainerStyle={tailwind`pb-24`}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <Animated.View style={[tailwind`mb-8`, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <Text style={[tailwind`text-4xl font-bold mb-2 tracking-tight`, { color: colors.text }]}>New Expense</Text>
-            <Text style={[tailwind`text-base font-medium`, { color: colors.textSecondary }]}>
-              Track your spending quickly
-            </Text>
+          {/* Modern Header with Gradient */}
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            <LinearGradient
+              colors={[colors.primary || '#6366F1', colors.primaryDark || '#4F46E5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={tailwind`px-6 pt-6 pb-8`}
+            >
+              <Text style={tailwind`text-white text-3xl font-bold tracking-tight`}>New Expense</Text>
+              <Text style={tailwind`text-white text-sm opacity-80 mt-1`}>
+                Track your spending
+              </Text>
+            </LinearGradient>
           </Animated.View>
 
-          {/* Amount */}
-          <View style={tailwind`mb-5`}>
-            <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>💵 Amount</Text>
-            <TextInput
-              placeholder="₹0.00"
-              placeholderTextColor={colors.placeholder}
-              keyboardType="numeric"
-              returnKeyType="next"
-              blurOnSubmit={false}
-              style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, {
-                backgroundColor: colors.input,
-                borderWidth: 1,
-                borderColor: colors.border,
-                color: colors.text
-              }]}
-              value={amount}
-              onChangeText={setAmount}
-            />
-            {amount && parseFloat(amount) > 0 && (
-              <Text style={[tailwind`text-xs mt-1`, { color: colors.success || '#10b981' }]}>✓ Amount entered: ₹{parseFloat(amount).toFixed(2)}</Text>
-            )}
-          </View>
-
-          {/* Title */}
-          <View style={tailwind`mb-5`}>
-            <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📝 Description</Text>
-            <TextInput
-              placeholder="e.g., Grocery Shopping"
-              placeholderTextColor={colors.placeholder}
-              returnKeyType="done"
-              style={[tailwind`p-4 rounded-2xl text-lg shadow-sm`, {
-                backgroundColor: colors.input,
-                borderWidth: 1,
-                borderColor: colors.border,
-                color: colors.text
-              }]}
-              value={title}
-              onChangeText={setTitle}
-            />
-          </View>
-
-          {/* Category */}
-          <View style={tailwind`mb-8`}>
-            <Text style={[tailwind`text-sm font-bold mb-2`, { color: colors.textSecondary }]}>📊 Category</Text>
-            <Pressable
-              onPress={handleCategoryInput}
-              style={[tailwind`p-4 rounded-2xl flex-row justify-between items-center shadow-sm`, {
-                backgroundColor: colors.input,
-                borderWidth: 1,
-                borderColor: colors.border
-              }]}
-            >
-              <View style={tailwind`flex-row items-center`}>
-                <View style={[tailwind`w-10 h-10 rounded-xl items-center justify-center mr-3`, { backgroundColor: category.color ? category.color + '30' : colors.border }]}>
-                  <Text style={tailwind`text-xl`}>{category.icon || '🎯'}</Text>
-                </View>
-                <Text style={[tailwind`text-base font-semibold`, { color: category.name ? colors.text : colors.placeholder }]}>{category.name || 'Select Category'}</Text>
+          <View style={tailwind`px-6 -mt-4`}>
+            {/* Amount Card - Calculator Style */}
+            <Animated.View style={[tailwind`mb-5 p-6 rounded-3xl shadow-lg`, { backgroundColor: colors.surface, opacity: fadeAnim }]}>
+              <Text style={[tailwind`text-xs font-bold mb-3 uppercase tracking-wider`, { color: colors.textSecondary }]}>Amount</Text>
+              <View style={tailwind`flex-row items-center mb-2`}>
+                <Text style={[tailwind`text-5xl font-bold mr-2`, { color: colors.text }]}>₹</Text>
+                <TextInput
+                  placeholder="0"
+                  placeholderTextColor={colors.placeholder}
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  style={[tailwind`text-5xl font-bold flex-1`, {
+                    color: colors.text,
+                    paddingVertical: 0
+                  }]}
+                  value={amount}
+                  onChangeText={setAmount}
+                />
               </View>
-              <Text style={[tailwind`text-xl`, { color: colors.textSecondary }]}>›</Text>
-            </Pressable>
-          </View>
+              {amount && parseFloat(amount) > 0 && (
+                <View style={[tailwind`mt-3 px-3 py-2 rounded-xl flex-row items-center`, { backgroundColor: colors.success + '15' }]}>
+                  <Text style={[tailwind`text-xs font-bold`, { color: colors.success }]}>✓ {parseFloat(amount).toFixed(2)}</Text>
+                </View>
+              )}
+            </Animated.View>
 
-          {/* Action Buttons */}
-          <Animated.View style={[tailwind`gap-4 mt-2 mb-6`, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            {/* Description */}
+            <Animated.View style={[tailwind`mb-5`, { opacity: fadeAnim }]}>
+              <Text style={[tailwind`text-xs font-bold mb-2 uppercase tracking-wider`, { color: colors.textSecondary }]}>Description</Text>
+              <TextInput
+                placeholder="e.g., Grocery Shopping"
+                placeholderTextColor={colors.placeholder}
+                returnKeyType="done"
+                style={[tailwind`p-4 rounded-2xl text-base`, {
+                  backgroundColor: colors.surface,
+                  color: colors.text,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 8,
+                  elevation: 2
+                }]}
+                value={title}
+                onChangeText={setTitle}
+              />
+            </Animated.View>
+
+            {/* Category Selection */}
+            <Animated.View style={[tailwind`mb-5`, { opacity: fadeAnim }]}>
+              <Text style={[tailwind`text-xs font-bold mb-2 uppercase tracking-wider`, { color: colors.textSecondary }]}>Category</Text>
+              <Pressable
+                onPress={handleCategoryInput}
+                style={({ pressed }) => [
+                  tailwind`p-4 rounded-2xl flex-row justify-between items-center`,
+                  {
+                    backgroundColor: colors.surface,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 8,
+                    elevation: 2,
+                    transform: [{ scale: pressed ? 0.98 : 1 }]
+                  }
+                ]}
+              >
+                <View style={tailwind`flex-row items-center flex-1`}>
+                  <View style={[tailwind`w-12 h-12 rounded-xl items-center justify-center mr-3`, { backgroundColor: category.color ? category.color + '20' : colors.primary + '15' }]}>
+                    <Text style={tailwind`text-2xl`}>{category.icon || '🎯'}</Text>
+                  </View>
+                  <View>
+                    <Text style={[tailwind`text-base font-bold`, { color: category.name ? colors.text : colors.placeholder }]}>
+                      {category.name || 'Select Category'}
+                    </Text>
+                    {category.name && (
+                      <Text style={[tailwind`text-xs mt-0.5`, { color: colors.textSecondary }]}>Tap to change</Text>
+                    )}
+                  </View>
+                </View>
+                <Text style={[tailwind`text-xl`, { color: colors.textSecondary }]}>›</Text>
+              </Pressable>
+            </Animated.View>
+
+            {/* Action Buttons */}
+            <Animated.View style={[tailwind`gap-4 mt-2 mb-6`, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             {/* Scan SMS Button */}
             <Pressable
               style={({ pressed }) => [
@@ -414,6 +505,7 @@ const Create = ({ navigation, route }) => {
           <Animated.Text style={[tailwind`text-xs text-center font-medium mt-2`, { color: colors.textTertiary, opacity: fadeAnim }]}>
             Payment opens UPI apps like Google Pay, PhonePe, Paytm
           </Animated.Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 

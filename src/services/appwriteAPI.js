@@ -84,7 +84,7 @@ export const authAPI = {
             name: profile.name,
             email: profile.email,
             phone: profile.phone || '',
-            totalBudget: profile.totalBudget,
+            totalBudget: parseFloat(profile.totalBudget) || 0,
             hasCompletedOnboarding: profile.hasCompletedOnboarding,
           },
           message: 'Login successful',
@@ -168,10 +168,13 @@ export const userAPI = {
         success: true,
         user: {
           id: profile.$id,
+          $id: profile.$id,
+          $createdAt: profile.$createdAt,
+          $updatedAt: profile.$updatedAt,
           name: profile.name,
           email: profile.email,
           phone: profile.phone,
-          totalBudget: profile.totalBudget,
+          totalBudget: parseFloat(profile.totalBudget) || 0,
           hasCompletedOnboarding: profile.hasCompletedOnboarding,
           budgetPeriod: profile.budgetPeriod || 'monthly',
           periodStartDate: profile.periodStartDate || new Date().toISOString(),
@@ -218,7 +221,7 @@ export const userAPI = {
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.users,
         userId,
-        { totalBudget }
+        { totalBudget: parseFloat(totalBudget) || 0 }
       );
 
       return {
@@ -302,7 +305,7 @@ export const categoryAPI = {
         name: doc.name,
         icon: doc.icon,
         color: doc.color,
-        budget: doc.budget,
+        budget: parseFloat(doc.budget) || 0,
         userId: doc.userId,
       }));
 
@@ -343,7 +346,7 @@ export const categoryAPI = {
           name,
           icon,
           color,
-          budget,
+          budget: parseFloat(budget) || 0,
         }
       );
 
@@ -375,7 +378,7 @@ export const categoryAPI = {
             name: cat.name,
             icon: cat.icon,
             color: cat.color,
-            budget: cat.budget || 0,
+            budget: parseFloat(cat.budget) || 0,
           }
         )
       );
@@ -415,7 +418,7 @@ export const categoryAPI = {
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.categories,
         category.$id,
-        { budget }
+        { budget: parseFloat(budget) || 0 }
       );
 
       return {
@@ -448,7 +451,7 @@ export const categoryAPI = {
             APPWRITE_CONFIG.databaseId,
             APPWRITE_CONFIG.collections.categories,
             category.$id,
-            { budget: item.budget }
+            { budget: parseFloat(item.budget) || 0 }
           );
         }
       });
@@ -522,7 +525,7 @@ export const expenseAPI = {
         _id: doc.$id,
         userId: doc.userId,
         title: doc.title,
-        amount: doc.amount,
+        amount: parseFloat(doc.amount) || 0,
         category: doc.category,
         icon: doc.icon,
         color: doc.color,
@@ -562,7 +565,7 @@ export const expenseAPI = {
         _id: doc.$id,
         userId: doc.userId,
         title: doc.title,
-        amount: doc.amount,
+        amount: parseFloat(doc.amount) || 0,
         category: doc.category,
         icon: doc.icon,
         color: doc.color,
@@ -598,7 +601,7 @@ export const expenseAPI = {
         [Query.equal('userId', userId), Query.equal('category', categoryName)]
       );
 
-      const total = response.documents.reduce((sum, doc) => sum + doc.amount, 0);
+      const total = response.documents.reduce((sum, doc) => sum + (parseFloat(doc.amount) || 0), 0);
 
       return {
         success: true,
@@ -635,7 +638,7 @@ export const expenseAPI = {
             color: doc.color,
           };
         }
-        summary[doc.category].total += doc.amount;
+        summary[doc.category].total += (parseFloat(doc.amount) || 0);
         summary[doc.category].count += 1;
       });
 
@@ -663,7 +666,7 @@ export const expenseAPI = {
         {
           userId,
           title,
-          amount,
+          amount: parseFloat(amount) || 0,
           category,
           icon,
           color,
@@ -692,7 +695,7 @@ export const expenseAPI = {
 
       const updateData = {
         title,
-        amount,
+        amount: parseFloat(amount) || 0,
         category,
         icon,
         color,

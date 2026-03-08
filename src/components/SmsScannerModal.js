@@ -101,7 +101,7 @@ const SmsScannerModal = ({ visible, onClose, onImport, defaultCategories = [] })
     const itemsToImport = messages
       .filter(m => selectedItems.has(m.id))
       .map(m => ({
-        amount: m.parsedAmount,
+        amount: parseFloat(m.parsedAmount) || 0,
         title: m.parsedEntity,
         category: m.category,
         date: m.date.toISOString(),
