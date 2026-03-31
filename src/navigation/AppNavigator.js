@@ -1,8 +1,8 @@
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, Platform, ActivityIndicator, View, TouchableOpacity } from 'react-native';
+import { Text, Platform, ActivityIndicator, View, TouchableOpacity, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Home from '../screens/Home';
 import Create from '../screens/Create';
 import Insights from '../screens/Insights';
@@ -147,27 +147,18 @@ export default function AppNavigator(params) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
     const [hasLoadedData, setHasLoadedData] = useState(false);
-    const isAuthenticatedRef = React.useRef(false);
-    const hasLoadedDataRef = React.useRef(false);
+    const isAuthenticatedRef = useRef(false);
+    const hasLoadedDataRef = useRef(false);
 
-    useEffect(() => {
-        checkAuth();
-
-        // Set up interval to check authentication status periodically
-        const authCheckInterval = setInterval(() => {
-            checkAuth();
-        }, 30000); // Check every 30 seconds
-
-        return () => clearInterval(authCheckInterval);
-    }, []);
-
-    const checkAuth = async () => {
+    const checkAuth = useRef(async () => {
         try {
             const authenticated = await authAPI.isAuthenticated();
+            console.log('🔍 Auth check:', authenticated ? 'Authenticated' : 'Not authenticated');
 
             if (authenticated !== isAuthenticatedRef.current) {
                 isAuthenticatedRef.current = authenticated;
                 setIsAuthenticated(authenticated);
+                console.log('✅ Auth state changed to:', authenticated);
 
                 // Load user data only when authentication state changes to true
                 if (authenticated && !hasLoadedDataRef.current) {
@@ -196,7 +187,28 @@ export default function AppNavigator(params) {
                 setLoading(false);
             }
         }
-    };
+    }).current;
+
+    useEffect(() => {
+        checkAuth();
+
+        // Set up interval to check authentication status periodically
+        const authCheckInterval = setInterval(() => {
+            checkAuth();
+        }, 5000); // Check every 5 seconds for faster response
+
+        // Check auth when app comes to foreground
+        const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active') {
+                checkAuth();
+            }
+        });
+
+        return () => {
+            clearInterval(authCheckInterval);
+            appStateSubscription.remove();
+        };
+    }, []);
 
     if (loading) {
         return (

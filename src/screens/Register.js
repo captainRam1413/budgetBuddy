@@ -43,16 +43,7 @@ const Register = ({ navigation }) => {
       const result = await authAPI.register(name.trim(), email.trim(), phone.trim(), password);
       
       if (result.success) {
-        Alert.alert('Success', 'Registration successful!', [
-          {
-            text: 'OK',
-            onPress: () => navigation.replace('Onboarding', {
-              userName: name.trim(),
-              userEmail: email.trim(),
-              userPhone: phone.trim()
-            })
-          }
-        ]);
+        Alert.alert('Success', 'Registration successful! Please complete your profile setup.');
       } else {
         Alert.alert('Registration Failed', result.message || 'Could not create account');
       }
@@ -67,7 +58,7 @@ const Register = ({ navigation }) => {
   const handleGoogleRegister = () => {
     // TODO: Add Google OAuth logic
     console.log('Register with Google');
-    navigation.replace('Onboarding');
+    // Don't manually navigate - let AppNavigator detect auth state change
   };
 
   return (

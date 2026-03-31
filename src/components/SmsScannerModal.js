@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, Pressable, FlatList, TextInput, SafeAreaView, TouchableOpacity, Animated, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, Modal, Pressable, FlatList, TextInput, SafeAreaView, TouchableOpacity, Animated, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, PermissionsAndroid, Linking } from 'react-native';
 import tailwind from 'twrnc';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
+import SmsAndroid from 'react-native-get-sms-android';
 
 const SmsScannerModal = ({ visible, onClose, onImport, defaultCategories = [] }) => {
   const { colors } = useTheme();
@@ -18,6 +19,207 @@ const SmsScannerModal = ({ visible, onClose, onImport, defaultCategories = [] })
   const slideAnim = React.useRef(new Animated.Value(200)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
+  // Parse transaction SMS message
+  const parseTransaction = (sms) => {
+    const body = sms.body || '';
+    
+    // Check if it's a debit/payment SMS
+    const isDebit = /debited|spent|paid|withdraw|purchase|debit|dr\s|payment/i.test(body);
+    if (!isDebit) return null;
+    
+    // Extract amount - matches Rs, Rs., ₹ followed by numbers with optional commas and decimals
+    const amountMatch = body.match(/(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]{2})?)/i);
+    if (!amountMatch) return null;
+    
+    const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+    if (!amount || amount <= 0) return null;
+    
+    // Extract merchant/entity - common patterns after "at", "to", "for", or between amount and other text
+    let entity = 'Unknown Merchant';
+    
+    // Pattern 1: "at MERCHANT" or "to MERCHANT" or "for MERCHANT"
+    const merchantMatch = body.match(/(?:at|to|for)\s+([A-Z][A-Z0-9\s\-\.]{2,30})/i);
+    if (merchantMatch) {
+      entity = merchantMatch[1].trim();
+    } else {
+      // Pattern 2: Card ending XXXX used at MERCHANT
+      const cardMatch = body.match(/(?:card|a\/c).*?(?:at|to)\s+([A-Z][A-Z0-9\s\-\.]{2,30})/i);
+      if (cardMatch) {
+        entity = cardMatch[1].trim();
+      } else {
+        // Pattern 3: First capitalized word after amount that's not a bank term
+        const afterAmount = body.split(amountMatch[0])[1] || '';
+        const wordMatch = afterAmount.match(/([A-Z][A-Za-z0-9\s\-\.]{2,30})(?:\s|$)/);
+        if (wordMatch) {
+          const word = wordMatch[1].trim();
+          // Filter out common bank terms
+          if (!/^(debited|from|credited|balance|available|account|card|upi|imps|neft|ref|txn|transaction|id|no|number)$/i.test(word)) {
+            entity = word;
+          }
+        }
+      }
+    }
+    
+    // Clean up entity name
+    entity = entity
+      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s\-\.]/g, '')
+      .trim()
+      .substring(0, 30);
+    
+    if (!entity || entity.length < 2) {
+      entity = 'Transaction';
+    }
+    
+    return {
+      amount,
+      entity,
+      body: body.substring(0, 150), // Truncate for display
+      date: new Date(parseInt(sms.date))
+    };
+  };
+
+  // Categorize based on merchant name
+  const categorizeTransaction = (entity, defaultCategories) => {
+    const entityLower = entity.toLowerCase();
+    
+    // Food & Dining
+    if (/swiggy|zomato|restaurant|cafe|food|pizza|burger|domino|mcdonald|kfc|subway|starbucks|dunkin|biryani/i.test(entityLower)) {
+      return defaultCategories.find(c => c.name.toLowerCase().includes('food')) || defaultCategories[0];
+    }
+    
+    // Shopping
+    if (/amazon|flipkart|myntra|ajio|meesho|shop|store|mart|bazaar|mall|retail/i.test(entityLower)) {
+      return defaultCategories.find(c => c.name.toLowerCase().includes('shopping')) || defaultCategories[0];
+    }
+    
+    // Transport
+    if (/uber|ola|rapido|petrol|diesel|fuel|gas|parking|toll|metro|bus|taxi|cab/i.test(entityLower)) {
+      return defaultCategories.find(c => c.name.toLowerCase().includes('transport')) || defaultCategories[0];
+    }
+    
+    // Entertainment
+    if (/movie|cinema|pvr|inox|netflix|prime|hotstar|spotify|youtube|music|game|entertainment/i.test(entityLower)) {
+      return defaultCategories.find(c => c.name.toLowerCase().includes('entertainment')) || defaultCategories[0];
+    }
+    
+    // Healthcare
+    if (/hospital|clinic|doctor|pharmacy|medical|medicine|health|apollo|fortis/i.test(entityLower)) {
+      return defaultCategories.find(c => c.name.toLowerCase().includes('health')) || defaultCategories[0];
+    }
+    
+    // Bills & Utilities
+    if (/electricity|water|gas|bill|recharge|mobile|phone|internet|broadband|wifi|dth|jio|airtel|vodafone|bsnl/i.test(entityLower)) {
+      return defaultCategories.find(c => c.name.toLowerCase().includes('bill') || c.name.toLowerCase().includes('utilit')) || defaultCategories[0];
+    }
+    
+    // Default to first category (usually "Other" or "General")
+    return defaultCategories[0];
+  };
+
+  // Request SMS permission
+  const requestSmsPermission = async () => {
+    if (Platform.OS !== 'android') {
+      Alert.alert('Not Available', 'SMS scanning is only available on Android devices.');
+      return false;
+    }
+    
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_SMS,
+        {
+          title: 'SMS Permission Required',
+          message: 'BudgetBuddy needs access to read SMS messages to find bank transactions and import them as expenses.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        }
+      );
+      
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        return true;
+      } else {
+        Alert.alert(
+          'Permission Denied',
+          'SMS permission is required to scan messages for transactions. You can enable it in Settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() }
+          ]
+        );
+        return false;
+      }
+    } catch (err) {
+      console.error('Permission error:', err);
+      Alert.alert('Error', 'Failed to request SMS permission.');
+      return false;
+    }
+  };
+
+  // Read SMS messages
+  const readSmsMessages = async () => {
+    try {
+      const permission = await requestSmsPermission();
+      if (!permission) {
+        setLoading(false);
+        return;
+      }
+      
+      // Read SMS from last 30 days
+      const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+      
+      const filter = {
+        box: 'inbox', // 'inbox', 'sent', 'draft', 'outbox', 'failed', 'queued'
+        minDate: thirtyDaysAgo,
+        maxCount: 100, // Limit to last 100 messages for performance
+      };
+      
+      SmsAndroid.list(
+        JSON.stringify(filter),
+        (fail) => {
+          console.error('Failed to read SMS:', fail);
+          Alert.alert('Error', 'Failed to read SMS messages. Please try again.');
+          setLoading(false);
+        },
+        (count, smsList) => {
+          const smsData = JSON.parse(smsList);
+          
+          // Parse and filter transaction SMS
+          const transactions = [];
+          smsData.forEach((sms, index) => {
+            const parsed = parseTransaction(sms);
+            if (parsed) {
+              const category = categorizeTransaction(parsed.entity, defaultCategories);
+              
+              transactions.push({
+                id: `sms-${index}-${sms.date}`,
+                body: parsed.body,
+                parsedEntity: parsed.entity,
+                parsedAmount: parsed.amount,
+                date: parsed.date,
+                category: category || defaultCategories[0],
+              });
+            }
+          });
+          
+          // Sort by date descending (newest first)
+          transactions.sort((a, b) => b.date - a.date);
+          
+          setMessages(transactions);
+          setLoading(false);
+          
+          if (transactions.length === 0) {
+            Alert.alert('No Transactions Found', 'No bank transaction messages found in your SMS inbox from the last 30 days.');
+          }
+        }
+      );
+    } catch (error) {
+      console.error('SMS read error:', error);
+      Alert.alert('Error', 'An error occurred while reading SMS messages.');
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (visible) {
       setLoading(true);
@@ -28,10 +230,8 @@ const SmsScannerModal = ({ visible, onClose, onImport, defaultCategories = [] })
         Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true })
       ]).start();
 
-      setTimeout(() => {
-        setMessages([]);
-        setLoading(false);
-      }, 500);
+      // Read actual SMS messages
+      readSmsMessages();
     } else {
       slideAnim.setValue(200);
       fadeAnim.setValue(0);
@@ -216,8 +416,8 @@ const SmsScannerModal = ({ visible, onClose, onImport, defaultCategories = [] })
             {loading ? (
               <View style={tailwind`flex-1 items-center justify-center`}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[tailwind`mt-4 font-medium`, { color: colors.textSecondary }]}>Scanning bank messages natively...</Text>
-                <Text style={[tailwind`mt-2 text-xs italic`, { color: colors.textTertiary }]}>Finding amounts and merchants...</Text>
+                <Text style={[tailwind`mt-4 font-medium`, { color: colors.textSecondary }]}>Reading SMS messages...</Text>
+                <Text style={[tailwind`mt-2 text-xs italic`, { color: colors.textTertiary }]}>Scanning last 100 messages for transactions</Text>
               </View>
             ) : (
               <View style={tailwind`flex-1`}>
@@ -269,7 +469,20 @@ const SmsScannerModal = ({ visible, onClose, onImport, defaultCategories = [] })
                   showsVerticalScrollIndicator={false}
                   ListEmptyComponent={
                     <View style={tailwind`items-center justify-center py-10`}>
-                      {/* You can restore an empty state message here when real SMS hooks are active */}
+                      <Text style={[tailwind`text-6xl mb-4`, { opacity: 0.3 }]}>📱</Text>
+                      <Text style={[tailwind`text-base font-bold mb-2`, { color: colors.text }]}>No Transactions Found</Text>
+                      <Text style={[tailwind`text-sm text-center mb-4 px-8`, { color: colors.textSecondary }]}>
+                        No bank transaction messages found in your SMS inbox.
+                      </Text>
+                      <Pressable
+                        onPress={() => {
+                          setLoading(true);
+                          readSmsMessages();
+                        }}
+                        style={[tailwind`px-6 py-3 rounded-xl`, { backgroundColor: colors.primary }]}
+                      >
+                        <Text style={tailwind`text-white font-bold`}>🔄 Rescan Messages</Text>
+                      </Pressable>
                     </View>
                   }
                 />

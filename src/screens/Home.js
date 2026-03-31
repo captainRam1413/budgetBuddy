@@ -309,7 +309,26 @@ const Home = ({ navigation, route }) => {
   const dailySpentCalc = periodExpenses.length > 0 ? totalSpent / Math.max(periodExpenses.length, 1) : 0;
   const dailySpent = Number.isFinite(dailySpentCalc) ? dailySpentCalc : 0;
   
-  const safeToSpendCalc = totalBudgetNum > 0 ? Math.max(0, budgetRemaining / Math.max(1, daysInPeriod - new Date().getDate())) : 0;
+  // Calculate actual days remaining in current budget period
+  const calculateDaysRemaining = () => {
+    const now = new Date();
+    
+    if (budgetPeriod === 'weekly') {
+      // Calculate days until end of week (Sunday)
+      const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+      return Math.max(1, daysUntilSunday); // At least 1 day
+    } else {
+      // Calculate days until end of month
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const currentDay = now.getDate();
+      const daysUntilEndOfMonth = lastDayOfMonth - currentDay + 1; // +1 to include today
+      return Math.max(1, daysUntilEndOfMonth);
+    }
+  };
+  
+  const daysRemaining = calculateDaysRemaining();
+  const safeToSpendCalc = totalBudgetNum > 0 ? Math.max(0, budgetRemaining / daysRemaining) : 0;
   const safeToSpend = Number.isFinite(safeToSpendCalc) ? safeToSpendCalc : 0;
   
   const avgDailySpendingCalc = periodExpenses.length > 0 ? totalSpent / Math.max(periodExpenses.length, 1) : 0;
@@ -421,7 +440,7 @@ const Home = ({ navigation, route }) => {
                   ₹{safeToSpend.toFixed(0)}
                 </Text>
                 <Text style={tailwind`text-white text-sm mt-2 opacity-80`}>
-                  Daily budget: ₹{dailyBudget.toFixed(0)} • {Math.max(0, Math.ceil(budgetRemaining / dailyBudget))} days left
+                  Daily budget: ₹{dailyBudget.toFixed(0)} • {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
                 </Text>
               </Animated.View>
             )}

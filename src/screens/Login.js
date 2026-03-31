@@ -27,7 +27,8 @@ const Login = ({ navigation }) => {
         // Load user data from backend after successful login
         await loadUserData();
         Alert.alert('Success', 'Login successful!');
-        navigation.replace('BottomTabs');
+        // Don't manually navigate - let AppNavigator detect auth state change
+        // The AppNavigator will automatically switch to the correct screen
       } else {
         Alert.alert('Login Failed', result.message || 'Invalid credentials');
       }
@@ -42,7 +43,7 @@ const Login = ({ navigation }) => {
   const handleGoogleLogin = () => {
     // TODO: Add Google OAuth logic
     console.log('Login with Google');
-    navigation.replace('BottomTabs');
+    // Don't manually navigate - let AppNavigator detect auth state change
   };
 
   return (

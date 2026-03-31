@@ -173,120 +173,112 @@ const Category = ({ navigation, route }) => {
                 onRequestClose={() => setShowAddModal(false)}
             >
                 <View style={[tailwind`flex-1 justify-end`, { backgroundColor: colors.overlay }]}>
-                    <ScrollView style={[tailwind`rounded-t-3xl p-6 max-h-[90%]`, { backgroundColor: colors.surface }]}>
-                        <Text style={[tailwind`text-2xl font-bold mb-4`, { color: colors.text }]}>
-                            Create Category
-                        </Text>
-
-                        {/* Category Name */}
-                        <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>
-                            Category Name
-                        </Text>
-                        <TextInput
-                            placeholder="e.g., Gym, Coffee, Pets"
-                            placeholderTextColor={colors.placeholder}
-                            style={[tailwind`p-4 rounded-xl text-lg mb-4 border-2`, {
-                                backgroundColor: colors.input,
-                                borderColor: colors.inputBorder,
-                                color: colors.text
-                            }]}
-                            value={newCategoryName}
-                            onChangeText={setNewCategoryName}
-                        />
-
-                        {/* Icon Selection */}
-                        <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>
-                            Choose Icon
-                        </Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={tailwind`mb-4`}
-                        >
-                            {AVAILABLE_ICONS.map((icon, index) => (
-                                <Pressable
-                                    key={index}
-                                    onPress={() => setSelectedIcon(icon)}
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+                    >
+                        <ScrollView style={[tailwind`rounded-t-3xl p-6 max-h-[90%]`, { backgroundColor: colors.surface }]}>
+                            <Text style={[tailwind`text-2xl font-bold mb-4`, { color: colors.text }]}>Create Category</Text>
+                            {/* Category Name */}
+                            <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>Category Name</Text>
+                            <TextInput
+                                placeholder="e.g., Gym, Coffee, Pets"
+                                placeholderTextColor={colors.placeholder}
+                                style={[tailwind`p-4 rounded-xl text-lg mb-4 border-2`, {
+                                    backgroundColor: colors.input,
+                                    borderColor: colors.inputBorder,
+                                    color: colors.text
+                                }]}
+                                value={newCategoryName}
+                                onChangeText={setNewCategoryName}
+                            />
+                            {/* Icon Selection */}
+                            <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>Choose Icon</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={tailwind`mb-4`}
+                            >
+                                {AVAILABLE_ICONS.map((icon, index) => (
+                                    <Pressable
+                                        key={index}
+                                        onPress={() => setSelectedIcon(icon)}
+                                        style={[
+                                            tailwind`p-3 m-1 rounded-xl border-2`,
+                                            {
+                                                backgroundColor: selectedIcon === icon ? colors.primary + '20' : colors.card,
+                                                borderColor: selectedIcon === icon ? colors.primary : colors.border
+                                            }
+                                        ]}
+                                    >
+                                        <Text style={tailwind`text-3xl`}>{icon}</Text>
+                                    </Pressable>
+                                ))}
+                            </ScrollView>
+                            {/* Color Selection */}
+                            <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>Choose Color</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={tailwind`mb-4`}
+                            >
+                                {AVAILABLE_COLORS.map((color, index) => (
+                                    <Pressable
+                                        key={index}
+                                        onPress={() => setSelectedColor(color)}
+                                        style={[
+                                            tailwind`w-12 h-12 m-1 rounded-full border-2`,
+                                            { backgroundColor: color },
+                                            selectedColor === color
+                                                ? tailwind`border-black border-4`
+                                                : tailwind`border-gray-300`
+                                        ]}
+                                    />
+                                ))}
+                            </ScrollView>
+                            {/* Preview */}
+                            <View style={[tailwind`p-4 rounded-xl mb-4 items-center`, { backgroundColor: colors.borderLight }]}>
+                                <Text style={[tailwind`text-sm mb-2`, { color: colors.textSecondary }]}>Preview</Text>
+                                <View
                                     style={[
-                                        tailwind`p-3 m-1 rounded-xl border-2`,
-                                        {
-                                            backgroundColor: selectedIcon === icon ? colors.primary + '20' : colors.card,
-                                            borderColor: selectedIcon === icon ? colors.primary : colors.border
-                                        }
+                                        tailwind`p-4 rounded-xl`,
+                                        { backgroundColor: selectedColor }
                                     ]}
                                 >
-                                    <Text style={tailwind`text-3xl`}>{icon}</Text>
-                                </Pressable>
-                            ))}
-                        </ScrollView>
-
-                        {/* Color Selection */}
-                        <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>
-                            Choose Color
-                        </Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={tailwind`mb-4`}
-                        >
-                            {AVAILABLE_COLORS.map((color, index) => (
-                                <Pressable
-                                    key={index}
-                                    onPress={() => setSelectedColor(color)}
-                                    style={[
-                                        tailwind`w-12 h-12 m-1 rounded-full border-2`,
-                                        { backgroundColor: color },
-                                        selectedColor === color
-                                            ? tailwind`border-black border-4`
-                                            : tailwind`border-gray-300`
-                                    ]}
-                                />
-                            ))}
-                        </ScrollView>
-
-                        {/* Preview */}
-                        <View style={[tailwind`p-4 rounded-xl mb-4 items-center`, { backgroundColor: colors.borderLight }]}>
-                            <Text style={[tailwind`text-sm mb-2`, { color: colors.textSecondary }]}>Preview</Text>
-                            <View
-                                style={[
-                                    tailwind`p-4 rounded-xl`,
-                                    { backgroundColor: selectedColor }
-                                ]}
-                            >
-                                <Text style={tailwind`text-4xl mb-2 text-center`}>{selectedIcon}</Text>
-                                <Text style={tailwind`text-white font-bold text-center`}>
-                                    {newCategoryName || 'Your Category'}
-                                </Text>
+                                    <Text style={tailwind`text-4xl mb-2 text-center`}>{selectedIcon}</Text>
+                                    <Text style={tailwind`text-white font-bold text-center`}>
+                                        {newCategoryName || 'Your Category'}
+                                    </Text>
+                                </View>
                             </View>
-                        </View>
-
-                        {/* Action Buttons */}
-                        <View style={tailwind`flex-row gap-3 mb-6`}>
-                            <Pressable
-                                style={[tailwind`flex-1 p-4 rounded-xl`, { backgroundColor: colors.border }]}
-                                onPress={() => {
-                                    setShowAddModal(false);
-                                    setNewCategoryName('');
-                                }}
-                            >
-                                <Text style={[tailwind`font-bold text-center`, { color: colors.text }]}>Cancel</Text>
-                            </Pressable>
-                            <Pressable
-                                style={({ pressed }) => [
-                                    tailwind`flex-1 rounded-xl shadow-md overflow-hidden`,
-                                    { transform: [{ scale: pressed ? 0.98 : 1 }] }
-                                ]}
-                                onPress={handleAddCategory}
-                            >
-                                <LinearGradient
-                                    colors={[colors.primary, colors.primaryDark]}
-                                    style={tailwind`p-4 items-center justify-center`}
+                            {/* Action Buttons */}
+                            <View style={tailwind`flex-row gap-3 mb-6`}>
+                                <Pressable
+                                    style={[tailwind`flex-1 p-4 rounded-xl`, { backgroundColor: colors.border }]}
+                                    onPress={() => {
+                                        setShowAddModal(false);
+                                        setNewCategoryName('');
+                                    }}
                                 >
-                                    <Text style={tailwind`text-white font-bold text-center`}>Add Category</Text>
-                                </LinearGradient>
-                            </Pressable>
-                        </View>
-                    </ScrollView>
+                                    <Text style={[tailwind`font-bold text-center`, { color: colors.text }]}>Cancel</Text>
+                                </Pressable>
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        tailwind`flex-1 rounded-xl shadow-md overflow-hidden`,
+                                        { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                                    ]}
+                                    onPress={handleAddCategory}
+                                >
+                                    <LinearGradient
+                                        colors={[colors.primary, colors.primaryDark]}
+                                        style={tailwind`p-4 items-center justify-center`}
+                                    >
+                                        <Text style={tailwind`text-white font-bold text-center`}>Add Category</Text>
+                                    </LinearGradient>
+                                </Pressable>
+                            </View>
+                        </ScrollView>
+                    </KeyboardAvoidingView>
                 </View>
             </Modal>
         </View>

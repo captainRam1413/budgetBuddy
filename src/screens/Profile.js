@@ -793,31 +793,24 @@ const Profile = ({ navigation }) => {
           onRequestClose={() => setShowAddCategoryModal(false)}
         >
           <View style={[tailwind`flex-1 justify-end`, { backgroundColor: colors.overlay }]}>
-            <ScrollView style={[tailwind`rounded-t-3xl p-6 max-h-[90%]`, { backgroundColor: colors.surface }]}>
-              <Text style={[tailwind`text-2xl font-bold mb-4`, { color: colors.text }]}>
-                Create New Category
-              </Text>
-
-              {/* Category Name */}
-              <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>
-                Category Name *
-              </Text>
-              <TextInput
-                placeholder="e.g., Gym, Coffee, Pets"
-                placeholderTextColor={colors.placeholder}
-                style={[tailwind`p-4 rounded-xl text-lg mb-4 border-2`, {
-                  backgroundColor: colors.input,
-                  borderColor: colors.inputBorder,
-                  color: colors.text
-                }]}
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-              />
-
-              {/* Budget */}
-              <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>
-                Monthly Budget (Optional)
-              </Text>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+              <ScrollView style={[tailwind`rounded-t-3xl p-6 max-h-[90%]`, { backgroundColor: colors.surface }]}>
+                <Text style={[tailwind`text-2xl font-bold mb-4`, { color: colors.text }]}>Create New Category</Text>
+                {/* Category Name */}
+                <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>Category Name *</Text>
+                <TextInput
+                  placeholder="e.g., Gym, Coffee, Pets"
+                  placeholderTextColor={colors.placeholder}
+                  style={[tailwind`p-4 rounded-xl text-lg mb-4 border-2`, {
+                    backgroundColor: colors.input,
+                    borderColor: colors.inputBorder,
+                    color: colors.text
+                  }]}
+                  value={newCategoryName}
+                  onChangeText={setNewCategoryName}
+                />
+                {/* Budget */}
+                <Text style={[tailwind`text-base font-semibold mb-2`, { color: colors.textSecondary }]}>Monthly Budget (Optional)</Text>
               <TextInput
                 placeholder="₹0.00"
                 placeholderTextColor={colors.placeholder}
