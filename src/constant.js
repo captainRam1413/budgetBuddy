@@ -1,4 +1,23 @@
-// 4 Common predefined categories
+export const CURRENCY_SYMBOL = '₹';
+
+export const SCREENS = {
+  LOGIN: 'Login',
+  REGISTER: 'Register',
+  ONBOARDING: 'Onboarding',
+  BOTTOM_TABS: 'BottomTabs',
+  HOME: 'Home',
+  CREATE: 'Create',
+  INSIGHTS: 'Insights',
+  PROFILE: 'Profile',
+  CATEGORY: 'Category',
+};
+
+export const STORAGE_KEYS = {
+  AUTH_TOKEN: 'authToken',
+  USER_ID: 'userId',
+};
+
+// Common predefined categories
 export const DEFAULT_CATEGORIES = [
   { name: 'Food', icon: '🍔', color: '#FFB347' },
   { name: 'Shopping', icon: '🛍️', color: '#6BCB77' },

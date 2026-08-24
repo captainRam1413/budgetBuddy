@@ -1,6 +1,6 @@
 import { getCategoryColor, getDate, getId } from "../helper";
 import { DEFAULT_CATEGORIES } from "../constant";
-import { userAPI, categoryAPI, expenseAPI } from "../services/appwriteAPI";
+import { userAPI, categoryAPI, expenseAPI } from "../services/api";
 
 const { createContext, useContext, useState } = require("react");
 
@@ -298,109 +298,46 @@ export function ExpenseProvider({ children }) {
 
   // Delete expense
   const deleteExpense = async (expenseId) => {
-    // Optimistic delete
-    const previousExpenses = [...expenses];
     setExpenses(prev => prev.filter(expense => expense.id !== expenseId));
-
     try {
-      const result = await expenseAPI.delete(expenseId);
-
-      if (!result.success) {
-        // If document not found, it's already deleted on server, so don't revert
-        if (result.message && (result.message.includes('could not be found') || result.message.includes('404'))) {
-          console.warn('Expense not found on server, keeping local deletion:', expenseId);
-          return;
-        }
-
-        // Revert on other failures
-        console.error('Failed to delete expense:', result.message);
-        setExpenses(previousExpenses);
-      }
+      await expenseAPI.delete(expenseId);
     } catch (error) {
-      console.error('Delete expense error:', error);
-      // Check for 404 in catch block too if API throws directly
-      if (error.message && (error.message.includes('could not be found') || error.message.includes('404'))) {
-        console.warn('Expense not found on server, keeping local deletion:', expenseId);
-        return;
-      }
-      setExpenses(previousExpenses);
+      console.error('Delete expense backend error:', error);
     }
   };
 
   // Add custom category
   const addCustomCategory = async (category) => {
+    // Check if category already exists in custom categories
     const exists = customCategories.some(cat => cat.name.toLowerCase() === category.name.toLowerCase());
 
     if (exists) {
       return { success: false, message: 'Category already exists' };
     }
 
+    setCustomCategories(prev => [...prev, category]);
+
     try {
-      // If the parameter `category` has property `budget`, we extract it, else 0
-      const result = await categoryAPI.create(category.name, category.icon, category.color, category.budget || 0);
-      if (result.success) {
-        setCustomCategories([...customCategories, category]);
-        return { success: true, message: 'Category added successfully' };
+      const res = await categoryAPI.create(category.name, category.icon, category.color, category.budget || 0);
+      if (!res.success) {
+        console.warn('Backend category creation warning:', res.message);
       }
-      return { success: false, message: result.message || 'Failed to add category to database' };
+      return { success: true, message: 'Category added successfully' };
     } catch (error) {
-      console.error('Failed to add category to DB:', error);
-      return { success: false, message: error.message || 'Error communicating with database' };
+      console.error('Add custom category backend error:', error);
+      return { success: true, message: 'Category added locally' };
     }
   };
 
-  // Add multiple categories
-  const addMultipleCategories = async (categoriesArray) => {
+  // Add multiple categories at once (for onboarding)
+  const addMultipleCategories = (categoriesArray) => {
     const validCategories = categoriesArray.filter(cat =>
       cat.name && cat.name.trim() &&
       !customCategories.some(existing => existing.name.toLowerCase() === cat.name.toLowerCase())
     );
 
-    if (validCategories.length === 0) {
-      return { success: true, count: 0 };
-    }
-
-    try {
-      const result = await categoryAPI.createMultiple(validCategories);
-      if (result.success) {
-        setCustomCategories([...customCategories, ...validCategories]);
-        return { success: true, count: validCategories.length };
-      }
-      return { success: false, message: result.message || 'Failed to save multiple categories' };
-    } catch (error) {
-      console.error('Failed to save multiple categories:', error);
-      return { success: false, message: error.message || 'Database error' };
-    }
-  };
-
-  // Delete category
-  const deleteCategory = async (categoryName) => {
-    try {
-      const categoryExpenses = expenses.filter(exp => exp.category === categoryName);
-
-      if (categoryExpenses.length > 0) {
-        return {
-          success: false,
-          hasExpenses: true,
-          expenseCount: categoryExpenses.length,
-          message: `Cannot delete category. ${categoryExpenses.length} expense(s) are using this category.`
-        };
-      }
-
-      const result = await categoryAPI.delete(categoryName);
-
-      if (result.success) {
-        setCustomCategories(customCategories.filter(cat => cat.name !== categoryName));
-        const newBudgets = { ...categoryBudgets };
-        delete newBudgets[categoryName];
-        setCategoryBudgets(newBudgets);
-        return { success: true, message: 'Category deleted successfully' };
-      }
-      return result;
-    } catch (error) {
-      console.error('Delete category error:', error);
-      return { success: false, message: 'Failed to delete category' };
-    }
+    setCustomCategories(prev => [...prev, ...validCategories]);
+    return { success: true, count: validCategories.length };
   };
 
   // Set user data
@@ -421,18 +358,18 @@ export function ExpenseProvider({ children }) {
     setHasCompletedOnboarding(true);
   };
 
-  // Set category budget
+  // Set budget for a specific category
   const setCategoryBudget = async (categoryName, amount) => {
-    const budgetAmount = Number(parseFloat(amount)) || 0;
+    const numericAmount = parseFloat(amount) || 0;
     setCategoryBudgets(prev => ({
       ...prev,
-      [categoryName]: budgetAmount
+      [categoryName]: numericAmount
     }));
 
     try {
-      await categoryAPI.updateBudget(categoryName, budgetAmount);
+      await categoryAPI.updateBudget(categoryName, numericAmount);
     } catch (error) {
-      console.error('Failed to update category budget in backend:', error);
+      console.error('Set category budget backend error:', error);
     }
   };
 
@@ -448,42 +385,16 @@ export function ExpenseProvider({ children }) {
     }));
   };
 
-  // Set total budget (Base)
-  const setBudget = (amount) => {
-    const newBudget = Number(parseFloat(amount)) || 0;
-    setBaseBudget(newBudget);
+  // Set total budget
+  const setBudget = async (amount) => {
+    const numericAmount = parseFloat(amount) || 0;
+    setTotalBudget(numericAmount);
 
     try {
-      if (userAPI.updateBudget) {
-        userAPI.updateBudget(newBudget);
-      } else {
-        console.warn("userAPI.updateBudget not found");
-      }
-    } catch (e) {
-      console.error("Failed to save budget", e);
-    }
-  };
-
-  // Update budget period
-  const updateBudgetPeriod = async (period) => {
-    setBudgetPeriod(period);
-    const newStartDate = new Date().toISOString();
-    setPeriodStartDate(newStartDate);
-
-    try {
-      await userAPI.updateBudgetPeriod(period, newStartDate);
+      await userAPI.updateBudget(numericAmount);
     } catch (error) {
-      console.error('❌ Failed to save budget period:', error);
+      console.error('Set budget backend error:', error);
     }
-  };
-
-  // Filter expenses by current period
-  const getExpensesForCurrentPeriod = () => {
-    const periodStart = getPeriodStartDate();
-    return expenses.filter(exp => {
-      const expenseDate = new Date(exp.date);
-      return expenseDate >= periodStart;
-    });
   };
 
   // Get spending by category

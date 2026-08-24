@@ -16,11 +16,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.captainram.budgetBuddy",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": [
-          "upi",
-          "upi"
-        ],
-        "ITSAppUsesNonExemptEncryption": false
+        "NSCameraUsageDescription": "Allow BudgetBuddy to access your camera to scan UPI QR codes."
       }
     },
     "android": {
@@ -29,9 +25,9 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "CAMERA",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.READ_SMS",
+        "android.permission.RECEIVE_SMS"
       ],
       "package": "com.captainram.budgetBuddy",
       "intentFilters": [
@@ -52,7 +48,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan QR codes for payments."
+          "cameraPermission": "Allow BudgetBuddy to access your camera to scan UPI QR codes for payments."
         }
       ],
       "./plugins/withAndroidQueries.js"

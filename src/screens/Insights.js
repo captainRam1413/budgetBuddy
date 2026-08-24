@@ -1,227 +1,20 @@
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, Pressable, Animated, Easing } from 'react-native'
-import React, { useMemo, useState } from 'react'
-import { LinearGradient } from 'expo-linear-gradient';
+import { Text, View, ScrollView, SafeAreaView } from 'react-native'
+import React, { useMemo } from 'react'
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
+import { formatCurrency } from '../helper'
 import tailwind from 'twrnc'
-import AnimatedCard from '../components/AnimatedCard';
-import { SkeletonLoader, StatCardSkeleton } from '../components/SkeletonLoader';
 
 const Insights = () => {
-  const {
-    expenses,
-    totalBudget,
-    getCategoryBudgetStatus,
-    budgetPeriod,
-    getExpensesForCurrentPeriod,
-    getTotalSpending
-  } = useExpense()
-  const { colors, isDarkMode } = useTheme()
+  const { expenses, totalBudget, getCategoryBudgetStatus } = useExpense()
+  const { colors } = useTheme()
 
-  // Ensure numeric values
-  const totalBudgetNum = Number(totalBudget) || 0;
-
-  // Period selection state
-  const [selectedPeriodOffset, setSelectedPeriodOffset] = useState(0) // 0 = current, -1 = previous, etc.
-
-  // Animation System
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const slideAnim = React.useRef(new Animated.Value(30)).current;
-  const headerScale = React.useRef(new Animated.Value(0.95)).current;
-  const statsSlide = React.useRef(new Animated.Value(50)).current;
-  const cardsSlide = React.useRef(new Animated.Value(70)).current;
-  const chartReveal = React.useRef(new Animated.Value(0)).current;
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
-
-  // Run entrance animation on mount and when period changes
-  React.useEffect(() => {
-    fadeAnim.setValue(0);
-    slideAnim.setValue(30);
-    headerScale.setValue(0.95);
-    statsSlide.setValue(50);
-    cardsSlide.setValue(70);
-    chartReveal.setValue(0);
-
-    // Simple pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.02,
-          duration: 2000,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Staggered entrance animation
-    Animated.stagger(100, [
-      Animated.parallel([
-        Animated.spring(headerScale, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        friction: 9,
-        tension: 45,
-        useNativeDriver: true,
-      }),
-      Animated.spring(statsSlide, {
-        toValue: 0,
-        friction: 9,
-        tension: 45,
-        useNativeDriver: true,
-      }),
-      Animated.spring(cardsSlide, {
-        toValue: 0,
-        friction: 9,
-        tension: 45,
-        useNativeDriver: true,
-      }),
-      Animated.timing(chartReveal, {
-        toValue: 1,
-        duration: 800,
-        easing: Easing.ease,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [selectedPeriodOffset]);
-
-  // Get the date range for selected period
-  const getSelectedPeriodRange = () => {
-    const now = new Date()
-    let startDate, endDate
-
-    if (budgetPeriod === 'weekly') {
-      // Calculate week start (Monday)
-      const dayOfWeek = now.getDay()
-      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-      const weekStart = new Date(now)
-      weekStart.setDate(now.getDate() + diff + (selectedPeriodOffset * 7))
-      weekStart.setHours(0, 0, 0, 0)
-
-      startDate = weekStart
-      endDate = new Date(weekStart)
-      endDate.setDate(weekStart.getDate() + 6)
-      endDate.setHours(23, 59, 59, 999)
-    } else {
-      // Monthly
-      const monthStart = new Date(now.getFullYear(), now.getMonth() + selectedPeriodOffset, 1)
-      monthStart.setHours(0, 0, 0, 0)
-
-      startDate = monthStart
-      endDate = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
-      endDate.setHours(23, 59, 59, 999)
-    }
-
-    return { startDate, endDate }
-  }
-
-  const { startDate, endDate } = getSelectedPeriodRange()
-
-  // Filter expenses for selected period (excluding income/credit)
-  const periodExpenses = useMemo(() => {
-    const start = startDate.getTime()
-    const end = endDate.getTime()
-
-    return expenses.filter(expense => {
-      const expenseDate = new Date(expense.date).getTime()
-
-      // Check if it's income/credit
-      const isIncome =
-        expense.type === 'credit' ||
-        ['income', 'salary', 'deposit', 'credit'].includes(expense.category?.toLowerCase() || '') ||
-        expense.category === 'Income';
-
-      return expenseDate >= start && expenseDate <= end && !isIncome
-    })
-  }, [expenses, startDate, endDate])
-
-  // Filter income/credit for selected period
-  const periodIncome = useMemo(() => {
-    const start = startDate.getTime()
-    const end = endDate.getTime()
-
-    return expenses.filter(expense => {
-      const expenseDate = new Date(expense.date).getTime()
-
-      const isIncome =
-        expense.type === 'credit' ||
-        ['income', 'salary', 'deposit', 'credit'].includes(expense.category?.toLowerCase() || '') ||
-        expense.category === 'Income';
-
-      return expenseDate >= start && expenseDate <= end && isIncome
-    })
-  }, [expenses, startDate, endDate])
-
-  const periodSpent = useMemo(() => {
-    return periodExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount || 0), 0)
-  }, [periodExpenses])
-
-  const totalPeriodIncome = useMemo(() => {
-    return periodIncome.reduce((sum, expense) => sum + parseFloat(expense.amount || 0), 0)
-  }, [periodIncome])
-
-  // Format period display
-  const getPeriodLabel = () => {
-    if (selectedPeriodOffset === 0) {
-      return budgetPeriod === 'weekly' ? 'This Week' : 'This Month'
-    }
-
-    if (budgetPeriod === 'weekly') {
-      const options = { month: 'short', day: 'numeric' }
-      return `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`
-    } else {
-      return startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    }
-  }
-
-  // Calculate period analytics
-  const periodAnalytics = useMemo(() => {
-    const daysInPeriod = budgetPeriod === 'weekly' ? 7 : 30
-    const periodSpentNum = Number(periodSpent) || 0
-    const totalBudgetNumber = Number(totalBudgetNum) || 0
-    const dailyAverage = periodExpenses.length > 0 ? Number(periodSpentNum / daysInPeriod) : 0
-    const remaining = totalBudgetNumber - periodSpentNum
-    const savingsRate = totalBudgetNumber > 0 ? Number((remaining / totalBudgetNumber) * 100) : 0
-    const utilizationRate = totalBudgetNumber > 0 ? Number((periodSpentNum / totalBudgetNumber) * 100) : 0
-
-    return {
-      spent: periodSpentNum,
-      remaining: Math.max(remaining, 0),
-      savings: remaining > 0 ? remaining : 0,
-      overBudget: remaining < 0 ? Math.abs(remaining) : 0,
-      dailyAverage,
-      savingsRate: Math.max(savingsRate, 0),
-      utilizationRate: Math.min(utilizationRate, 100),
-      transactionCount: periodExpenses.length,
-      daysInPeriod,
-      isOverBudget: remaining < 0
-    }
-  }, [periodExpenses, periodSpent, totalBudgetNum, budgetPeriod])
-
-  // Calculate category-wise spending (period-specific)
+  // Calculate category-wise spending
   const categoryStats = useMemo(() => {
     const stats = {}
     let total = 0
 
-    periodExpenses.forEach(expense => {
+    expenses.forEach(expense => {
       const amount = parseFloat(expense.amount) || 0
       total += amount
 
@@ -240,18 +33,17 @@ const Insights = () => {
 
     // Convert to array and add percentage + budget info
     const categoryArray = Object.keys(stats).map(category => {
-      const budgetStatus = getCategoryBudgetStatus(category, true);
-      const categoryAmount = Number(stats[category].amount) || 0;
-
+      const budgetStatus = getCategoryBudgetStatus(category);
+      const categoryAmount = stats[category].amount;
+      
       // Calculate percentage: if budget exists, show % of budget used, otherwise % of total spending
       let percentage;
-      const budgetAmount = Number(budgetStatus.budget) || 0;
-      if (budgetAmount > 0) {
-        percentage = Number((categoryAmount / budgetAmount) * 100);
+      if (budgetStatus.budget > 0) {
+        percentage = (categoryAmount / budgetStatus.budget) * 100;
       } else {
-        percentage = total > 0 ? Number((categoryAmount / total) * 100) : 0;
+        percentage = total > 0 ? (categoryAmount / total) * 100 : 0;
       }
-
+      
       return {
         name: category,
         amount: categoryAmount,
@@ -259,8 +51,8 @@ const Insights = () => {
         color: stats[category].color,
         icon: stats[category].icon,
         percentage: percentage,
-        budget: budgetAmount,
-        budgetRemaining: Number(budgetStatus.remaining) || 0,
+        budget: budgetStatus.budget,
+        budgetRemaining: budgetStatus.remaining,
         isOverBudget: budgetStatus.isOverBudget
       };
     })
@@ -269,589 +61,147 @@ const Insights = () => {
     categoryArray.sort((a, b) => b.amount - a.amount)
 
     return { categories: categoryArray, total }
-  }, [periodExpenses, getCategoryBudgetStatus])
+  }, [expenses, getCategoryBudgetStatus])
 
-  if (periodExpenses.length === 0) {
+  if (expenses.length === 0) {
     return (
       <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
-        <ScrollView style={[tailwind`flex-1`, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark || '#4f46e5']}
-            style={tailwind`p-6 pb-12 rounded-b-3xl shadow-lg`}
-          >
-            <Text style={tailwind`text-3xl font-bold text-white`}>Insights</Text>
-            <Text style={tailwind`text-white opacity-90 mt-1`}>
-              {budgetPeriod === 'weekly' ? 'Weekly' : 'Monthly'} Budget Analysis
-            </Text>
-          </LinearGradient>
-
-          {/* Period Selector */}
-          <View style={[tailwind`mx-5 -mt-8 mb-3 p-4 rounded-2xl shadow-lg`, { backgroundColor: colors.surface }]}>
-            <View style={tailwind`flex-row items-center justify-between`}>
-              <Pressable
-                onPress={() => setSelectedPeriodOffset(selectedPeriodOffset - 1)}
-                style={[tailwind`w-10 h-10 rounded-full items-center justify-center`, { backgroundColor: colors.primary + '20' }]}
-              >
-                <Text style={[tailwind`text-xl font-bold`, { color: colors.primary }]}>‹</Text>
-              </Pressable>
-
-              <View style={tailwind`flex-1 mx-3 items-center`}>
-                <Text style={[tailwind`text-xs font-semibold mb-1`, { color: colors.textSecondary }]}>
-                  {budgetPeriod === 'weekly' ? '📆 Week' : '📅 Month'}
-                </Text>
-                <Text style={[tailwind`text-base font-bold`, { color: colors.text }]}>
-                  {getPeriodLabel()}
-                </Text>
-                {selectedPeriodOffset !== 0 && (
-                  <Pressable
-                    onPress={() => setSelectedPeriodOffset(0)}
-                    style={[tailwind`mt-2 px-3 py-1 rounded-full`, { backgroundColor: colors.primary + '20' }]}
-                  >
-                    <Text style={[tailwind`text-xs font-semibold`, { color: colors.primary }]}>Back to Current</Text>
-                  </Pressable>
-                )}
-              </View>
-
-              <Pressable
-                onPress={() => setSelectedPeriodOffset(selectedPeriodOffset + 1)}
-                disabled={selectedPeriodOffset >= 0}
-                style={[tailwind`w-10 h-10 rounded-full items-center justify-center`, {
-                  backgroundColor: selectedPeriodOffset >= 0 ? colors.border : colors.primary + '20',
-                  opacity: selectedPeriodOffset >= 0 ? 0.5 : 1
-                }]}
-              >
-                <Text style={[tailwind`text-xl font-bold`, { color: colors.primary }]}>›</Text>
-              </Pressable>
-            </View>
-          </View>
-
-            {/* Empty State */}
-            <Animated.View style={[tailwind`flex-1 justify-center items-center p-8 mt-12`, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-              <Text style={tailwind`text-6xl mb-4`}>📊</Text>
-              <Text style={[tailwind`text-xl font-bold mb-2`, { color: colors.text }]}>
-                No expenses for {getPeriodLabel()}
-              </Text>
-              <Text style={[tailwind`text-base text-center mb-4`, { color: colors.textSecondary }]}>
-                {selectedPeriodOffset === 0
-                  ? 'Add some expenses to see your spending insights'
-                : 'Try selecting a different period or add new expenses'
-              }
-            </Text>
-            {expenses.length > 0 && (
-              <View style={[tailwind`mt-4 p-4 rounded-xl`, { backgroundColor: colors.info + '20' }]}>
-                <Text style={[tailwind`text-sm text-center`, { color: colors.info }]}>
-                  💡 You have {expenses.length} total expense{expenses.length > 1 ? 's' : ''} in other periods
-                </Text>
-              </View>
-            )}
-          </Animated.View>
-        </ScrollView>
+        <View style={[tailwind`flex-1 justify-center items-center p-8`]}>
+          <Text style={tailwind`text-6xl mb-4`}>📊</Text>
+          <Text style={[tailwind`text-xl font-bold mb-2`, { color: colors.text }]}>No expenses yet</Text>
+          <Text style={[tailwind`text-base text-center`, { color: colors.textSecondary }]}>
+            Add some expenses to see your spending insights
+          </Text>
+        </View>
       </SafeAreaView>
     )
   }
 
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
-      <ScrollView style={[tailwind`flex-1`, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
-        {/* Modern Header */}
-        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-          <LinearGradient
-            colors={[colors.primary || '#6366F1', colors.primaryDark || '#4F46E5']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={tailwind`px-6 pt-6 pb-10`}
-          >
-            <Text style={tailwind`text-white text-3xl font-bold tracking-tight`}>Analytics</Text>
-            <Text style={tailwind`text-white text-sm opacity-80 mt-1`}>
-              Track your spending patterns
-            </Text>
-          </LinearGradient>
-        </Animated.View>
+      <ScrollView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
+        {/* Header */}
+        <View style={[tailwind`p-6 pb-8`, { backgroundColor: colors.primary }]}>
+        <Text style={tailwind`text-3xl font-bold text-white`}>Insights</Text>
+        <Text style={tailwind`text-white opacity-90 mt-1`}>
+          Analyze your spending patterns
+        </Text>
+      </View>
 
-        {/* Period Selector */}
-        <View style={[tailwind`mx-5 -mt-8 mb-3 p-4 rounded-2xl shadow-lg`, { backgroundColor: colors.surface }]}>
-          <View style={tailwind`flex-row items-center justify-between`}>
-            <Pressable
-              onPress={() => setSelectedPeriodOffset(selectedPeriodOffset - 1)}
-              style={[tailwind`w-10 h-10 rounded-full items-center justify-center`, { backgroundColor: colors.primary + '20' }]}
-            >
-              <Text style={[tailwind`text-xl font-bold`, { color: colors.primary }]}>‹</Text>
-            </Pressable>
-
-            <View style={tailwind`flex-1 mx-3 items-center`}>
-              <Text style={[tailwind`text-xs font-semibold mb-1`, { color: colors.textSecondary }]}>
-                {budgetPeriod === 'weekly' ? '📆 Week' : '📅 Month'}
-              </Text>
-              <Text style={[tailwind`text-base font-bold`, { color: colors.text }]}>
-                {getPeriodLabel()}
-              </Text>
-              {selectedPeriodOffset !== 0 && (
-                <Pressable
-                  onPress={() => setSelectedPeriodOffset(0)}
-                  style={[tailwind`mt-2 px-3 py-1 rounded-full`, { backgroundColor: colors.primary + '20' }]}
-                >
-                  <Text style={[tailwind`text-xs font-semibold`, { color: colors.primary }]}>Back to Current</Text>
-                </Pressable>
-              )}
-            </View>
-
-            <Pressable
-              onPress={() => setSelectedPeriodOffset(selectedPeriodOffset + 1)}
-              disabled={selectedPeriodOffset >= 0}
-              style={[tailwind`w-10 h-10 rounded-full items-center justify-center`, {
-                backgroundColor: selectedPeriodOffset >= 0 ? colors.border : colors.primary + '20',
-                opacity: selectedPeriodOffset >= 0 ? 0.5 : 1
-              }]}
-            >
-              <Text style={[tailwind`text-xl font-bold`, { color: colors.primary }]}>›</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Period Overview Cards */}
-        <View style={tailwind`mx-5 mb-6`}>
-          {/* Main Budget Card */}
-          <View style={[tailwind`p-6 rounded-3xl shadow-lg mb-3`, {
-            backgroundColor: periodAnalytics.isOverBudget ? colors.error : colors.surface
+      {/* Total Spending Card */}
+      <View style={[tailwind`mx-5 -mt-4 p-6 rounded-3xl shadow-lg items-center`, { backgroundColor: colors.surface }]}>
+        <Text style={[tailwind`text-sm font-semibold`, { color: colors.textSecondary }]}>💸 Total Spending</Text>
+        <Text style={[tailwind`text-5xl font-bold mt-2`, { color: colors.text }]}>{formatCurrency(categoryStats.total)}</Text>
+        <Text style={[tailwind`text-sm mt-1`, { color: colors.textTertiary }]}>
+          {expenses.length} transaction{expenses.length !== 1 ? 's' : ''}
+        </Text>
+        {totalBudget > 0 && (
+          <View style={[tailwind`mt-3 px-4 py-2 rounded-full`, { 
+            backgroundColor: categoryStats.total > totalBudget ? colors.error + '20' : colors.success + '20'
           }]}>
-            <View style={tailwind`flex-row items-center justify-between mb-4`}>
-              <View style={tailwind`flex-1`}>
-                <Text style={[tailwind`text-sm font-semibold mb-1`, {
-                  color: periodAnalytics.isOverBudget ? 'rgba(255,255,255,0.9)' : colors.textSecondary
-                }]}>
-                  {selectedPeriodOffset === 0
-                    ? (budgetPeriod === 'weekly' ? '📆 This Week' : '📅 This Month')
-                    : (budgetPeriod === 'weekly' ? '📆 Week' : '📅 Month')
-                  }
-                </Text>
-                <Text style={[tailwind`text-4xl font-bold`, {
-                  color: periodAnalytics.isOverBudget ? '#fff' : colors.text
-                }]}>
-                  ₹{periodAnalytics.spent.toFixed(0)}
-                </Text>
-                <Text style={[tailwind`text-xs mt-1`, {
-                  color: periodAnalytics.isOverBudget ? 'rgba(255,255,255,0.8)' : colors.textTertiary
-                }]}>
-                  of ₹{totalBudgetNum.toFixed(0)} budget
-                </Text>
-              </View>
-              <View style={[tailwind`w-20 h-20 rounded-full items-center justify-center`, {
-                backgroundColor: periodAnalytics.isOverBudget ? 'rgba(255,255,255,0.2)' : colors.primary + '20'
-              }]}>
-                <Text style={[tailwind`text-xl font-bold`, {
-                  color: periodAnalytics.isOverBudget ? '#fff' : colors.primary
-                }]}>
-                  {periodAnalytics.utilizationRate.toFixed(0)}%
-                </Text>
-              </View>
-            </View>
-
-            {/* Progress Bar */}
-            <View style={[tailwind`h-3 rounded-full overflow-hidden mb-3`, {
-              backgroundColor: periodAnalytics.isOverBudget ? 'rgba(255,255,255,0.3)' : colors.borderLight
+            <Text style={[tailwind`text-xs font-bold`, { 
+              color: categoryStats.total > totalBudget ? colors.error : colors.success
             }]}>
-              <View style={[tailwind`h-full`, {
-                width: `${Math.min(Number(periodAnalytics.utilizationRate), 100)}%`,
-                backgroundColor: periodAnalytics.isOverBudget ? '#fff' :
-                  periodAnalytics.utilizationRate > 80 ? colors.warning : colors.success
-              }]} />
-            </View>
-
-            <View style={tailwind`flex-row justify-between`}>
-              <Text style={[tailwind`text-xs font-semibold`, {
-                color: periodAnalytics.isOverBudget ? 'rgba(255,255,255,0.9)' : colors.textSecondary
-              }]}>
-                {periodAnalytics.transactionCount} expenses
-              </Text>
-              <Text style={[tailwind`text-xs font-semibold`, {
-                color: periodAnalytics.isOverBudget ? '#fff' :
-                  periodAnalytics.isOverBudget ? colors.error : colors.success
-              }]}>
-                {periodAnalytics.isOverBudget ?
-                  `₹${periodAnalytics.overBudget.toFixed(0)} over budget` :
-                  `₹${periodAnalytics.savings.toFixed(0)} remaining`
-                }
-              </Text>
-            </View>
-          </View>
-
-          {/* Stats Grid */}
-          <View style={tailwind`flex-row gap-3`}>
-            <View style={[tailwind`flex-1 p-4 rounded-2xl`, { backgroundColor: colors.surface }]}>
-              <Text style={tailwind`text-2xl mb-2`}>💰</Text>
-              <Text style={[tailwind`text-xl font-bold`, { color: colors.text }]}>
-                ₹{periodAnalytics.dailyAverage.toFixed(0)}
-              </Text>
-              <Text style={[tailwind`text-xs`, { color: colors.textSecondary }]}>Daily Avg</Text>
-            </View>
-
-            <View style={[tailwind`flex-1 p-4 rounded-2xl`, {
-              backgroundColor: periodAnalytics.savingsRate > 50 ? colors.success + '20' : colors.warning + '20'
-            }]}>
-              <Text style={tailwind`text-2xl mb-2`}>
-                {periodAnalytics.savingsRate > 50 ? '📈' : '📉'}
-              </Text>
-              <Text style={[tailwind`text-xl font-bold`, {
-                color: periodAnalytics.savingsRate > 50 ? colors.success : colors.warning
-              }]}>
-                {periodAnalytics.savingsRate.toFixed(0)}%
-              </Text>
-              <Text style={[tailwind`text-xs`, {
-                color: periodAnalytics.savingsRate > 50 ? colors.success : colors.warning
-              }]}>
-                {periodAnalytics.isOverBudget ? 'Over Spent' : 'Saved'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Budget Summary */}
-        {totalBudgetNum > 0 && (
-          <View style={[tailwind`mx-5 p-4 rounded-2xl mb-6`, { backgroundColor: colors.surface }]}>
-            <Text style={[tailwind`text-base font-bold mb-3`, { color: colors.text }]}>
-              💼 Budget Summary
+              {((categoryStats.total / totalBudget) * 100).toFixed(0)}% of budget used
             </Text>
-            <View style={tailwind`gap-2`}>
-              <View style={tailwind`flex-row justify-between`}>
-                <Text style={[tailwind`text-sm`, { color: colors.textSecondary }]}>Total Budget</Text>
-                <Text style={[tailwind`text-sm font-bold`, { color: colors.text }]}>₹{totalBudgetNum.toFixed(0)}</Text>
-              </View>
-              <View style={tailwind`flex-row justify-between`}>
-                <Text style={[tailwind`text-sm`, { color: colors.textSecondary }]}>Spent</Text>
-                <Text style={[tailwind`text-sm font-bold`, { color: colors.error }]}>- ₹{periodAnalytics.spent.toFixed(0)}</Text>
-              </View>
-              <View style={[tailwind`h-px`, { backgroundColor: colors.border }]} />
-              <View style={tailwind`flex-row justify-between`}>
-                <Text style={[tailwind`text-sm font-bold`, { color: colors.text }]}>
-                  {periodAnalytics.isOverBudget ? 'Over Budget' : 'Remaining / Savings'}
-                </Text>
-                <Text style={[tailwind`text-sm font-bold`, {
-                  color: periodAnalytics.isOverBudget ? colors.error : colors.success
-                }]}>
-                  {periodAnalytics.isOverBudget ? '- ' : ''}₹{(periodAnalytics.isOverBudget ? periodAnalytics.overBudget : periodAnalytics.savings).toFixed(0)}
-                </Text>
-              </View>
-            </View>
           </View>
         )}
+      </View>
 
-        {/* Total Spending Card (All Time) */}
-        <View style={[tailwind`mx-5 p-5 rounded-2xl shadow-sm mb-6`, { backgroundColor: colors.border }]}>
-          <View style={tailwind`flex-row items-center justify-between`}>
-            <View>
-              <Text style={[tailwind`text-xs font-semibold mb-1`, { color: colors.textSecondary }]}>
-                📊 All Time Total
-              </Text>
-              <Text style={[tailwind`text-3xl font-bold`, { color: colors.text }]}>
-                ₹{expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0).toFixed(0)}
-              </Text>
-              <Text style={[tailwind`text-xs mt-1`, { color: colors.textSecondary }]}>
-                {expenses.length} total transactions
-              </Text>
-            </View>
-            <Text style={tailwind`text-4xl`}>💸</Text>
-          </View>
-        </View>
-
-        {/* Credit Analysis (Income) Card - Green Theme */}
-        {totalPeriodIncome > 0 && (
-          <View style={[
-            tailwind`mx-5 p-5 rounded-2xl mb-6`,
-            {
-              backgroundColor: isDarkMode ? '#064E3B' : '#D1FAE5',
-              elevation: 4,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-              zIndex: 10
-            }
-          ]}>
-            <View style={tailwind`flex-row items-center justify-between`}>
-              <View style={tailwind`flex-row items-center flex-1`}>
-                <View style={[tailwind`w-12 h-12 rounded-full items-center justify-center mr-4`, { backgroundColor: isDarkMode ? '#047857' : '#10B981' }]}>
-                  <Text style={[tailwind`text-2xl`, { color: '#FFFFFF' }]}>💰</Text>
+      {/* Category Breakdown */}
+      <View style={tailwind`p-5`}>
+        <Text style={[tailwind`text-xl font-bold mb-4`, { color: colors.text }]}>
+          📊 Category Breakdown
+        </Text>
+        
+        {categoryStats.categories.map((category, index) => (
+          <View key={index} style={[tailwind`rounded-2xl p-4 mb-3 shadow-sm`, { backgroundColor: colors.surface }]}>
+            <View style={tailwind`flex-row justify-between items-start mb-3`}>
+              <View style={tailwind`flex-row items-start flex-1`}>
+                <View style={[tailwind`p-3 rounded-xl mr-3`, { backgroundColor: category.color + '20' }]}>
+                  <Text style={tailwind`text-2xl`}>{category.icon}</Text>
                 </View>
-                <View>
-                  <Text style={[tailwind`text-xs font-bold uppercase tracking-wide mb-1`, { color: isDarkMode ? '#A7F3D0' : '#047857' }]}>
-                    Income & Credits
-                  </Text>
-                  <Text style={[tailwind`text-2xl font-bold`, { color: isDarkMode ? '#ECFDF5' : '#064E3B' }]}>
-                    +₹{totalPeriodIncome.toFixed(0)}
-                  </Text>
-                </View>
-              </View>
-              <View style={[tailwind`px-3 py-1.5 rounded-lg`, { backgroundColor: isDarkMode ? '#065F46' : '#A7F3D0' }]}>
-                <Text style={[tailwind`text-xs font-bold`, { color: isDarkMode ? '#ECFDF5' : '#065F46' }]}>
-                  {periodIncome.length} txn
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Category Breakdown */}
-        <View style={tailwind`p-5`}>
-          <Text style={[tailwind`text-xl font-bold mb-4`, { color: colors.text }]}>
-            📊 Category Breakdown
-          </Text>
-
-          {categoryStats.categories.map((category, index) => (
-            <View key={index} style={[tailwind`rounded-2xl p-4 mb-3 shadow-sm`, { backgroundColor: colors.surface }]}>
-              <View style={tailwind`flex-row justify-between items-start mb-3`}>
-                <View style={tailwind`flex-row items-start flex-1`}>
-                  <View style={[tailwind`p-3 rounded-xl mr-3`, { backgroundColor: category.color + '20' }]}>
-                    <Text style={tailwind`text-2xl`}>{category.icon}</Text>
-                  </View>
-                  <View style={tailwind`flex-1`}>
-                    <View style={tailwind`flex-row items-center gap-2 mb-1`}>
-                      <Text style={[tailwind`text-base font-bold`, { color: colors.text }]}>{category.name}</Text>
-                      {category.isOverBudget && (
-                        <Text style={[tailwind`text-xs font-bold`, { color: colors.error }]}>⚠️ Over</Text>
-                      )}
-                    </View>
-                    <Text style={[tailwind`text-xs mb-1`, { color: colors.textTertiary }]}>
-                      {category.count} transaction{category.count > 1 ? 's' : ''}
-                    </Text>
-                    {category.budget > 0 && (
-                      <Text style={[tailwind`text-xs`, { color: colors.textSecondary }]}>
-                        Budget: ₹{category.budget.toFixed(0)} • Left: ₹{Math.max(category.budgetRemaining, 0).toFixed(0)}
-                      </Text>
+                <View style={tailwind`flex-1`}>
+                  <View style={tailwind`flex-row items-center gap-2 mb-1`}>
+                    <Text style={[tailwind`text-base font-bold`, { color: colors.text }]}>{category.name}</Text>
+                    {category.isOverBudget && (
+                      <Text style={[tailwind`text-xs font-bold`, { color: colors.error }]}>⚠️ Over</Text>
                     )}
                   </View>
-                </View>
-                <View style={tailwind`items-end ml-2`}>
-                  <Text style={[tailwind`text-xl font-bold`, { color: colors.text }]}>₹{category.amount.toFixed(0)}</Text>
-                  <Text style={[tailwind`text-xs font-semibold`, { color: category.color }]}>{category.percentage.toFixed(1)}%</Text>
-                </View>
-              </View>
-
-              {/* Progress Bar */}
-              {category.budget > 0 ? (
-                <View style={[tailwind`h-2 rounded-full overflow-hidden`, { backgroundColor: colors.borderLight }]}>
-                  <View
-                    style={{
-                      width: `${Math.min(Number((category.amount / category.budget) * 100), 100)}%`,
-                      height: '100%',
-                      borderRadius: 4,
-                      backgroundColor: category.isOverBudget ? colors.error : category.color
-                    }}
-                  />
-                </View>
-              ) : (
-                <View style={[tailwind`h-2 rounded-full overflow-hidden`, { backgroundColor: colors.borderLight }]}>
-                  <View
-                    style={{
-                      width: `${Math.min(Number(category.percentage), 100)}%`,
-                      height: '100%',
-                      borderRadius: 4,
-                      backgroundColor: category.color
-                    }}
-                  />
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-
-        {/* Top Categories */}
-        {categoryStats.categories.length >= 3 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Top 3 Spending Categories</Text>
-            <View style={styles.topCategoriesContainer}>
-              {categoryStats.categories.slice(0, 3).map((category, index) => (
-                <View key={index} style={[styles.topCategoryCard, { borderLeftColor: category.color }]}>
-                  <Text style={styles.topCategoryRank}>#{index + 1}</Text>
-                  <Text style={styles.topCategoryIcon}>{category.icon}</Text>
-                  <Text style={styles.topCategoryName}>{category.name}</Text>
-                  <Text style={styles.topCategoryAmount}>₹{category.amount.toFixed(2)}</Text>
+                  <Text style={[tailwind`text-xs mb-1`, { color: colors.textTertiary }]}>
+                    {category.count} transaction{category.count > 1 ? 's' : ''}
+                  </Text>
                   {category.budget > 0 && (
-                    <Text style={{ fontSize: 10, color: '#999', marginTop: 2 }}>
-                      of ₹{category.budget.toFixed(2)}
+                    <Text style={[tailwind`text-xs`, { color: colors.textSecondary }]}>
+                      Budget: {formatCurrency(category.budget)} • Left: {formatCurrency(Math.max(category.budgetRemaining, 0))}
                     </Text>
                   )}
                 </View>
-              ))}
+              </View>
+              <View style={tailwind`items-end ml-2`}>
+                <Text style={[tailwind`text-xl font-bold`, { color: colors.text }]}>{formatCurrency(category.amount)}</Text>
+                <Text style={[tailwind`text-xs font-semibold`, { color: category.color }]}>{category.percentage.toFixed(1)}%</Text>
+              </View>
             </View>
+            
+            {/* Progress Bar */}
+            {category.budget > 0 ? (
+              <View style={[tailwind`h-2 rounded-full overflow-hidden`, { backgroundColor: colors.borderLight }]}>
+                <View 
+                  style={{ 
+                    width: `${Math.min((category.amount / category.budget) * 100, 100)}%`,
+                    height: '100%',
+                    borderRadius: 4,
+                    backgroundColor: category.isOverBudget ? colors.error : category.color
+                  }} 
+                />
+              </View>
+            ) : (
+              <View style={[tailwind`h-2 rounded-full overflow-hidden`, { backgroundColor: colors.borderLight }]}>
+                <View 
+                  style={{ 
+                    width: `${Math.min(category.percentage, 100)}%`,
+                    height: '100%',
+                    borderRadius: 4,
+                    backgroundColor: category.color
+                  }} 
+                />
+              </View>
+            )}
           </View>
-        )}
+        ))}
+      </View>
+
+      {/* Top Categories */}
+      {categoryStats.categories.length >= 3 && (
+        <View style={tailwind`mx-5 mb-6`}>
+          <Text style={[tailwind`text-lg font-semibold mb-3`, { color: colors.text }]}>Top 3 Spending Categories</Text>
+          <View style={tailwind`flex-row justify-between gap-2`}>
+            {categoryStats.categories.slice(0, 3).map((category, index) => (
+              <View 
+                key={index} 
+                style={[
+                  tailwind`flex-1 p-4 rounded-2xl items-center border-l-4 shadow-sm`, 
+                  { backgroundColor: colors.surface, borderLeftColor: category.color }
+                ]}
+              >
+                <Text style={[tailwind`text-xs font-semibold mb-2`, { color: colors.textSecondary }]}>#{index + 1}</Text>
+                <Text style={tailwind`text-3xl mb-2`}>{category.icon}</Text>
+                <Text style={[tailwind`text-xs font-medium text-center mb-1`, { color: colors.textSecondary }]}>{category.name}</Text>
+                <Text style={[tailwind`text-sm font-bold`, { color: colors.text }]}>₹{category.amount.toFixed(0)}</Text>
+                {category.budget > 0 && (
+                  <Text style={[tailwind`text-xs mt-1`, { color: colors.textTertiary }]}>
+                    of ₹{category.budget.toFixed(0)}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
       </ScrollView>
     </SafeAreaView>
   )
 }
 
-export default Insights
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  totalCard: {
-    backgroundColor: '#6200ee',
-    margin: 16,
-    padding: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  totalLabel: {
-    color: '#fff',
-    fontSize: 16,
-    opacity: 0.9,
-    marginBottom: 8,
-  },
-  totalAmount: {
-    color: '#fff',
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  totalSubtext: {
-    color: '#fff',
-    fontSize: 14,
-    opacity: 0.8,
-  },
-  section: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  categoryCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  categoryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  categoryIcon: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  categoryName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  categoryCount: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  budgetText: {
-    fontSize: 11,
-    color: '#6200ee',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  categoryRight: {
-    alignItems: 'flex-end',
-  },
-  categoryAmount: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-  },
-  categoryPercentage: {
-    fontSize: 14,
-    color: '#6200ee',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  topCategoriesContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  topCategoryCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  topCategoryRank: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#999',
-    marginBottom: 8,
-  },
-  topCategoryIcon: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
-  topCategoryName: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  topCategoryAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#333',
-  },
-})
+export default Insights;

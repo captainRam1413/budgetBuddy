@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
-import { AVAILABLE_ICONS, AVAILABLE_COLORS } from '../constant';
-import { userAPI, categoryAPI } from '../services/appwriteAPI';
+import { AVAILABLE_ICONS, AVAILABLE_COLORS, SCREENS } from '../constant';
+import { userAPI, categoryAPI } from '../services/api';
 
 const Onboarding = ({ navigation, route }) => {
   const { colors } = useTheme();
@@ -87,7 +87,17 @@ const Onboarding = ({ navigation, route }) => {
           budget: parseFloat(cat.budget) || 0
         }));
 
-      // 3. Complete onboarding in backend
+      // 3. Create categories in backend
+      if (categoriesToCreate.length > 0) {
+        const categoryResult = await categoryAPI.createMultiple(categoriesToCreate);
+        if (!categoryResult.success) {
+          Alert.alert('Error', categoryResult.message || 'Failed to create categories');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 4. Complete onboarding in backend
       const onboardingResult = await userAPI.completeOnboarding();
       if (!onboardingResult.success) {
         Alert.alert('Error', onboardingResult.message || 'Failed to complete onboarding');
@@ -95,7 +105,7 @@ const Onboarding = ({ navigation, route }) => {
         return;
       }
 
-      // 4. Update local context (for immediate UI updates)
+      // 5. Update local context (for immediate UI updates)
       setUser({
         name: userName,
         email: userEmail,
@@ -103,13 +113,14 @@ const Onboarding = ({ navigation, route }) => {
       });
       setBudget(budgetAmount);
 
-      if (categoriesToCreate.length > 0) {
-        const createResult = await addMultipleCategories(categoriesToCreate);
-        if (!createResult.success) {
-          Alert.alert('Error', createResult.message || 'Failed to save categories');
-          // Non-fatal, we continue
-        }
-      }
+      const validCategories = categories
+        .filter(cat => cat.name && cat.name.trim())
+        .map(cat => ({
+          name: cat.name.trim(),
+          icon: cat.icon,
+          color: cat.color
+        }));
+      addMultipleCategories(validCategories);
 
       const budgetsToSet = {};
       categories.forEach(cat => {
@@ -125,23 +136,11 @@ const Onboarding = ({ navigation, route }) => {
       }
       completeOnboarding();
 
-      // Give a small delay to allow state to update, then navigate
-      setTimeout(() => {
-        Alert.alert(
-          'Welcome to BudgetBuddy! 🎉',
-          'Your budget has been set up successfully',
-          [{ 
-            text: 'Get Started', 
-            onPress: () => {
-              // Reset navigation stack to BottomTabs
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'BottomTabs' }],
-              });
-            }
-          }]
-        );
-      }, 300);
+      Alert.alert(
+        'Welcome to BudgetBuddy! 🎉',
+        'Your budget has been set up successfully',
+        [{ text: 'Get Started', onPress: () => navigation.replace(SCREENS.BOTTOM_TABS) }]
+      );
     } catch (error) {
       console.error('Onboarding error:', error);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
@@ -384,5 +383,3 @@ const Onboarding = ({ navigation, route }) => {
 };
 
 export default Onboarding;
-
-const styles = StyleSheet.create({});

@@ -1,10 +1,10 @@
-import { StyleSheet, Text, View, TextInput, Pressable, SafeAreaView, Image, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, Text, View, TextInput, Pressable, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import React, { useState } from 'react';
 import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
-import { authAPI } from '../services/appwriteAPI';
+import { authAPI } from '../services/api';
+import { SCREENS } from '../constant';
 
 const Login = ({ navigation }) => {
   const { colors } = useTheme();
@@ -27,8 +27,7 @@ const Login = ({ navigation }) => {
         // Load user data from backend after successful login
         await loadUserData();
         Alert.alert('Success', 'Login successful!');
-        // Don't manually navigate - let AppNavigator detect auth state change
-        // The AppNavigator will automatically switch to the correct screen
+        navigation.replace('BottomTabs');
       } else {
         Alert.alert('Login Failed', result.message || 'Invalid credentials');
       }
@@ -43,7 +42,7 @@ const Login = ({ navigation }) => {
   const handleGoogleLogin = () => {
     // TODO: Add Google OAuth logic
     console.log('Login with Google');
-    // Don't manually navigate - let AppNavigator detect auth state change
+    navigation.replace('BottomTabs');
   };
 
   return (
@@ -51,141 +50,95 @@ const Login = ({ navigation }) => {
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={tailwind`flex-1`}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView 
-          contentContainerStyle={tailwind`flex-grow pb-24`}
+          contentContainerStyle={tailwind`flex-grow px-6`}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          bounces={false}
         >
-          {/* Modern Gradient Header */}
-          <LinearGradient
-            colors={['#667eea', '#764ba2']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={tailwind`pt-16 pb-12 px-6 mb-8`}
+          {/* Logo/Header with Gradient Background */}
+          <View style={tailwind`items-center pt-16 pb-12 -mx-6 px-6 mb-8`}>
+            <View style={[tailwind`w-24 h-24 rounded-full items-center justify-center mb-4 shadow-lg`, { backgroundColor: colors.primary }]}>
+              <Text style={tailwind`text-5xl`}>💰</Text>
+            </View>
+            <Text style={[tailwind`text-4xl font-bold mb-2`, { color: colors.text }]}>Welcome Back</Text>
+            <Text style={[tailwind`text-base`, { color: colors.textSecondary }]}>Login to manage your budget</Text>
+          </View>
+
+          {/* Email Input */}
+          <View style={tailwind`mb-5`}>
+            <Text style={[tailwind`text-sm font-bold mb-3`, { color: colors.textSecondary }]}>📧 Email Address</Text>
+            <TextInput
+              placeholder="your@email.com"
+              placeholderTextColor={colors.placeholder}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              style={[tailwind`p-4 rounded-2xl text-base shadow-sm`, {
+                backgroundColor: colors.input,
+                borderWidth: 1,
+                borderColor: colors.border,
+                color: colors.text
+              }]}
+            />
+          </View>
+
+          {/* Password Input */}
+          <View style={tailwind`mb-8`}>
+            <Text style={[tailwind`text-sm font-bold mb-3`, { color: colors.textSecondary }]}>🔒 Password</Text>
+            <TextInput
+              placeholder="Enter your password"
+              placeholderTextColor={colors.placeholder}
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              style={[tailwind`p-4 rounded-2xl text-base shadow-sm`, {
+                backgroundColor: colors.input,
+                borderWidth: 1,
+                borderColor: colors.border,
+                color: colors.text
+              }]}
+            />
+          </View>
+
+          {/* Login Button */}
+          <Pressable
+            onPress={handleLogin}
+            disabled={loading}
+            style={[tailwind`py-5 rounded-2xl mb-4 shadow-lg`, { backgroundColor: colors.primary, opacity: loading ? 0.7 : 1 }]}
           >
-            <View style={tailwind`items-center`}>
-              <View style={[tailwind`w-28 h-28 rounded-full items-center justify-center mb-6 border-4 border-white/30`, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                <Text style={tailwind`text-6xl`}>💰</Text>
-              </View>
-              <Text style={tailwind`text-white text-4xl font-bold mb-2`}>Welcome Back</Text>
-              <Text style={[tailwind`text-base`, { color: 'rgba(255,255,255,0.9)' }]}>Login to manage your budget</Text>
-            </View>
-          </LinearGradient>
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={tailwind`text-white text-center font-bold text-lg`}>Login to Account</Text>
+            )}
+          </Pressable>
 
-          <View style={tailwind`px-6`}>
+          {/* Divider */}
+          <View style={tailwind`flex-row items-center my-8`}>
+            <View style={[tailwind`flex-1 h-px`, { backgroundColor: colors.border }]} />
+            <Text style={[tailwind`mx-4 text-sm font-semibold`, { color: colors.textSecondary }]}>OR CONTINUE WITH</Text>
+            <View style={[tailwind`flex-1 h-px`, { backgroundColor: colors.border }]} />
+          </View>
 
-            {/* Email Input Card */}
-            <View style={[tailwind`mb-5 rounded-2xl p-5 shadow-lg`, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
-              <View style={tailwind`flex-row items-center mb-3`}>
-                <View style={[tailwind`w-10 h-10 rounded-xl items-center justify-center mr-3`, { backgroundColor: '#667eea15' }]}>
-                  <Text style={tailwind`text-xl`}>📧</Text>
-                </View>
-                <Text style={[tailwind`text-base font-bold`, { color: colors.text }]}>Email Address</Text>
-              </View>
-              <TextInput
-                placeholder="your@email.com"
-                placeholderTextColor={colors.placeholder}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-                returnKeyType="next"
-                blurOnSubmit={false}
-                style={[tailwind`p-4 rounded-xl text-base`, {
-                  backgroundColor: colors.input,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-              />
-            </View>
+          {/* Google Login Button */}
+          <Pressable
+            onPress={handleGoogleLogin}
+            style={[tailwind`py-4 rounded-2xl mb-8 border flex-row items-center justify-center shadow-sm`, {
+              backgroundColor: colors.surface,
+              borderColor: colors.border
+            }]}
+          >
+            <Text style={tailwind`text-2xl mr-3`}>🔍</Text>
+            <Text style={[tailwind`font-bold text-base`, { color: colors.text }]}>Google</Text>
+          </Pressable>
 
-            {/* Password Input Card */}
-            <View style={[tailwind`mb-6 rounded-2xl p-5 shadow-lg`, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
-              <View style={tailwind`flex-row items-center mb-3`}>
-                <View style={[tailwind`w-10 h-10 rounded-xl items-center justify-center mr-3`, { backgroundColor: '#764ba215' }]}>
-                  <Text style={tailwind`text-xl`}>🔒</Text>
-                </View>
-                <Text style={[tailwind`text-base font-bold`, { color: colors.text }]}>Password</Text>
-              </View>
-              <TextInput
-                placeholder="Enter your password"
-                placeholderTextColor={colors.placeholder}
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                returnKeyType="done"
-                onSubmitEditing={handleLogin}
-                style={[tailwind`p-4 rounded-xl text-base`, {
-                  backgroundColor: colors.input,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-              />
-            </View>
-
-            {/* Login Button with Gradient */}
-            <Pressable
-              onPress={handleLogin}
-              disabled={loading || !email || !password}
-              style={({ pressed }) => [
-                tailwind`rounded-2xl mb-4 shadow-lg overflow-hidden`,
-                { 
-                  opacity: (loading || !email || !password) ? 0.5 : (pressed ? 0.9 : 1),
-                  transform: [{ scale: pressed ? 0.98 : 1 }]
-                }
-              ]}
-            >
-              <LinearGradient
-                colors={(loading || !email || !password) ? [colors.border, colors.border] : ['#667eea', '#764ba2']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={tailwind`py-5`}
-              >
-                {loading ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={tailwind`text-center font-bold text-lg text-white`}>
-                    Login to Account
-                  </Text>
-                )}
-              </LinearGradient>
+          {/* Sign Up Link */}
+          <View style={tailwind`flex-row justify-center items-center`}>
+            <Text style={[tailwind`text-base`, { color: colors.textSecondary }]}>Don't have an account? </Text>
+            <Pressable onPress={() => navigation.navigate(SCREENS.REGISTER)}>
+              <Text style={[tailwind`text-base font-bold`, { color: colors.primary }]}>Sign Up</Text>
             </Pressable>
-
-            {/* Divider */}
-            <View style={tailwind`flex-row items-center my-6`}>
-              <View style={[tailwind`flex-1 h-px`, { backgroundColor: colors.border }]} />
-              <Text style={[tailwind`mx-4 text-xs font-semibold`, { color: colors.textSecondary }]}>OR CONTINUE WITH</Text>
-              <View style={[tailwind`flex-1 h-px`, { backgroundColor: colors.border }]} />
-            </View>
-
-            {/* Google Login Button */}
-            <Pressable
-              onPress={handleGoogleLogin}
-              style={({ pressed }) => [
-                tailwind`py-4 rounded-2xl mb-8 border flex-row items-center justify-center shadow-md`,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  opacity: pressed ? 0.7 : 1
-                }
-              ]}
-            >
-              <Text style={tailwind`text-2xl mr-3`}>🔍</Text>
-              <Text style={[tailwind`font-bold text-base`, { color: colors.text }]}>Continue with Google</Text>
-            </Pressable>
-
-            {/* Sign Up Link */}
-            <View style={tailwind`flex-row justify-center items-center`}>
-              <Text style={[tailwind`text-base`, { color: colors.textSecondary }]}>Don't have an account? </Text>
-              <Pressable onPress={() => navigation.navigate('Register')}>
-                <Text style={[tailwind`text-base font-bold`, { color: '#667eea' }]}>Sign Up</Text>
-              </Pressable>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -194,5 +147,3 @@ const Login = ({ navigation }) => {
 };
 
 export default Login;
-
-const styles = StyleSheet.create({});
