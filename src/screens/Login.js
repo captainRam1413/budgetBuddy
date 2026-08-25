@@ -1,9 +1,10 @@
-import { StyleSheet, Text, View, TextInput, Pressable, SafeAreaView, Image, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Pressable, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import React, { useState } from 'react';
 import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
-import { authAPI } from '../services/appwriteAPI';
+import { authAPI } from '../services/api';
+import { SCREENS } from '../constant';
 
 const Login = ({ navigation }) => {
   const { colors } = useTheme();
@@ -135,7 +136,7 @@ const Login = ({ navigation }) => {
           {/* Sign Up Link */}
           <View style={tailwind`flex-row justify-center items-center`}>
             <Text style={[tailwind`text-base`, { color: colors.textSecondary }]}>Don't have an account? </Text>
-            <Pressable onPress={() => navigation.navigate('Register')}>
+            <Pressable onPress={() => navigation.navigate(SCREENS.REGISTER)}>
               <Text style={[tailwind`text-base font-bold`, { color: colors.primary }]}>Sign Up</Text>
             </Pressable>
           </View>
@@ -146,5 +147,3 @@ const Login = ({ navigation }) => {
 };
 
 export default Login;
-
-const styles = StyleSheet.create({});

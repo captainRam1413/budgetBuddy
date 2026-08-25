@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Pressable, SafeAreaView, Modal, TextInput, ScrollView, Alert, RefreshControl, Linking } from "react-native";
+import { StyleSheet, Text, View, Pressable, SafeAreaView, Modal, TextInput, Alert, RefreshControl } from "react-native";
 import React from "react";
 import tailwind from "twrnc";
 import { FlatList } from "react-native";
@@ -7,9 +7,10 @@ import EmptyList from "../components/EmptyList";
 import { useExpense } from "../context/ExpenseContext";
 import { useTheme } from "../context/ThemeContext";
 import QRScanner from "../components/QRScanner";
-import { getId, getDate } from '../helper';
-import { expenseAPI } from '../services/appwriteAPI';
+import { expenseAPI } from '../services/api';
 import { initiateQrPayment, initiateManualPayment, showPaymentConfirmation } from '../services/paymentService';
+import { SCREENS } from '../constant';
+import { formatCurrency } from '../helper';
 const Home = ({ navigation, route }) => {
   const { 
     expenses, 
@@ -187,11 +188,11 @@ const Home = ({ navigation, route }) => {
           </View>
           
           <Text style={[tailwind`text-4xl font-bold mb-1`, { color: colors.text }]}>
-            ₹{totalBudget.toFixed(2)}
+            {formatCurrency(totalBudget, 2)}
           </Text>
           
           <Text style={[tailwind`text-sm mb-3`, { color: colors.textTertiary }]}>
-            Spent ₹{totalSpent.toFixed(2)} • {budgetPercentage.toFixed(0)}% used
+            Spent {formatCurrency(totalSpent, 2)} • {budgetPercentage.toFixed(0)}% used
           </Text>
           
           {/* Progress Bar */}
@@ -211,7 +212,7 @@ const Home = ({ navigation, route }) => {
             <View>
               <Text style={[tailwind`text-xs`, { color: colors.textTertiary }]}>Remaining</Text>
               <Text style={[tailwind`text-lg font-bold`, { color: budgetRemaining < 0 ? colors.error : colors.success }]}>
-                ₹{Math.max(budgetRemaining, 0).toFixed(0)}
+                {formatCurrency(Math.max(budgetRemaining, 0))}
               </Text>
             </View>
             <View style={tailwind`items-end`}>
@@ -226,7 +227,7 @@ const Home = ({ navigation, route }) => {
         <View style={[tailwind`mx-5 my-3 p-6 rounded-3xl shadow-lg items-center`, { backgroundColor: colors.primary }]}>
           <Text style={tailwind`text-sm text-white opacity-90 font-semibold`}>💸 Total Spending</Text>
           <Text style={tailwind`text-5xl text-white font-bold mt-3`}>
-            ₹{totalSpent.toFixed(0)}
+            {formatCurrency(totalSpent)}
           </Text>
           <Text style={tailwind`text-white text-sm opacity-80 mt-2`}>
             {expenses.length} transaction{expenses.length !== 1 ? 's' : ''}
@@ -246,7 +247,7 @@ const Home = ({ navigation, route }) => {
         
         <Pressable
           style={[tailwind`flex-1 py-5 rounded-2xl shadow-lg flex-row items-center justify-center`, { backgroundColor: colors.success }]}
-          onPress={() => navigation.navigate('Create')}
+          onPress={() => navigation.navigate(SCREENS.CREATE)}
         >
           <Text style={tailwind`text-white text-2xl mr-2`}>➕</Text>
           <Text style={tailwind`text-white font-bold text-base`}>Add Expense</Text>
@@ -330,7 +331,7 @@ const Home = ({ navigation, route }) => {
                 <Pressable 
                   onPress={() => {
                     setShowPaymentModal(false);
-                    navigation.navigate("Category", { fromScreen: "Home" });
+                    navigation.navigate(SCREENS.CATEGORY, { fromScreen: SCREENS.HOME });
                   }}
                   style={[tailwind`p-4 rounded-xl border-2 flex-row justify-between items-center`, { 
                     backgroundColor: colors.input,
@@ -398,5 +399,3 @@ const Home = ({ navigation, route }) => {
 };
 
 export default Home;
-
-const styles = StyleSheet.create({});

@@ -3,8 +3,10 @@ import React, { useState } from 'react'
 import tailwind from 'twrnc'
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
-import { AVAILABLE_ICONS, AVAILABLE_COLORS } from '../constant'
-import { authAPI } from '../services/appwriteAPI'
+import { AVAILABLE_ICONS, AVAILABLE_COLORS, SCREENS } from '../constant'
+import { formatCurrency } from '../helper'
+import { authAPI } from '../services/api'
+import { smsService } from '../services/smsService'
 
 const Profile = ({ navigation }) => {
   const { 
@@ -75,16 +77,17 @@ const Profile = ({ navigation }) => {
     Alert.alert("Success", `Budget for ${categoryName} set to ₹${amount.toFixed(2)}`);
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
       Alert.alert('Error', 'Please enter a category name');
       return;
     }
 
-    const result = addCustomCategory({
+    const result = await addCustomCategory({
       name: newCategoryName.trim(),
       icon: selectedIcon,
-      color: selectedColor
+      color: selectedColor,
+      budget: newCategoryBudget ? parseFloat(newCategoryBudget) : 0
     });
 
     if (result.success) {
@@ -200,7 +203,7 @@ const Profile = ({ navigation }) => {
                       onPress: async () => {
                         await authAPI.logout();
                         clearAllData();
-                        navigation.replace('Login');
+                        navigation.replace(SCREENS.LOGIN);
                       }
                     }
                   ]
@@ -391,6 +394,37 @@ const Profile = ({ navigation }) => {
             </Text>
           </View>
         )}
+
+        {/* Device Permissions Card */}
+        <View style={tailwind`mt-6`}>
+          <Text style={[tailwind`text-xl font-bold mb-3`, { color: colors.text }]}>⚙️ App Permissions</Text>
+          <View style={[tailwind`rounded-3xl p-5 shadow-sm`, { backgroundColor: colors.surface }]}>
+            <View style={tailwind`flex-row justify-between items-center mb-2`}>
+              <View style={tailwind`flex-row items-center flex-1 mr-3`}>
+                <Text style={tailwind`text-3xl mr-3`}>📩</Text>
+                <View style={tailwind`flex-1`}>
+                  <Text style={[tailwind`text-base font-bold`, { color: colors.text }]}>Bank SMS Auto-Tracking</Text>
+                  <Text style={[tailwind`text-xs mt-0.5`, { color: colors.textSecondary }]}>
+                    Scan bank transactional SMS to log expenses automatically
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <Pressable
+              style={[tailwind`mt-3 py-3 rounded-xl items-center justify-center shadow-sm`, { backgroundColor: colors.primary }]}
+              onPress={async () => {
+                const res = await smsService.requestSmsPermission();
+                if (res.granted) {
+                  Alert.alert('Permission Granted 🎉', 'BudgetBuddy can now detect bank transaction SMS to auto-log your expenses.');
+                } else if (res.reason) {
+                  Alert.alert('Permission Status', res.reason);
+                }
+              }}
+            >
+              <Text style={tailwind`text-white font-bold text-sm`}>Check & Grant SMS Permission</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
 
       {/* Edit Budget Modal */}
@@ -659,6 +693,4 @@ const Profile = ({ navigation }) => {
   );
 };
 
-export default Profile
-
-const styles = StyleSheet.create({})
+export default Profile;

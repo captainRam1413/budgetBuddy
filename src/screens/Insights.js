@@ -1,7 +1,8 @@
-import { StyleSheet, Text, View, ScrollView, SafeAreaView } from 'react-native'
+import { Text, View, ScrollView, SafeAreaView } from 'react-native'
 import React, { useMemo } from 'react'
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
+import { formatCurrency } from '../helper'
 import tailwind from 'twrnc'
 
 const Insights = () => {
@@ -90,7 +91,7 @@ const Insights = () => {
       {/* Total Spending Card */}
       <View style={[tailwind`mx-5 -mt-4 p-6 rounded-3xl shadow-lg items-center`, { backgroundColor: colors.surface }]}>
         <Text style={[tailwind`text-sm font-semibold`, { color: colors.textSecondary }]}>💸 Total Spending</Text>
-        <Text style={[tailwind`text-5xl font-bold mt-2`, { color: colors.text }]}>₹{categoryStats.total.toFixed(0)}</Text>
+        <Text style={[tailwind`text-5xl font-bold mt-2`, { color: colors.text }]}>{formatCurrency(categoryStats.total)}</Text>
         <Text style={[tailwind`text-sm mt-1`, { color: colors.textTertiary }]}>
           {expenses.length} transaction{expenses.length !== 1 ? 's' : ''}
         </Text>
@@ -132,13 +133,13 @@ const Insights = () => {
                   </Text>
                   {category.budget > 0 && (
                     <Text style={[tailwind`text-xs`, { color: colors.textSecondary }]}>
-                      Budget: ₹{category.budget.toFixed(0)} • Left: ₹{Math.max(category.budgetRemaining, 0).toFixed(0)}
+                      Budget: {formatCurrency(category.budget)} • Left: {formatCurrency(Math.max(category.budgetRemaining, 0))}
                     </Text>
                   )}
                 </View>
               </View>
               <View style={tailwind`items-end ml-2`}>
-                <Text style={[tailwind`text-xl font-bold`, { color: colors.text }]}>₹{category.amount.toFixed(0)}</Text>
+                <Text style={[tailwind`text-xl font-bold`, { color: colors.text }]}>{formatCurrency(category.amount)}</Text>
                 <Text style={[tailwind`text-xs font-semibold`, { color: category.color }]}>{category.percentage.toFixed(1)}%</Text>
               </View>
             </View>
@@ -173,18 +174,24 @@ const Insights = () => {
 
       {/* Top Categories */}
       {categoryStats.categories.length >= 3 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Top 3 Spending Categories</Text>
-          <View style={styles.topCategoriesContainer}>
+        <View style={tailwind`mx-5 mb-6`}>
+          <Text style={[tailwind`text-lg font-semibold mb-3`, { color: colors.text }]}>Top 3 Spending Categories</Text>
+          <View style={tailwind`flex-row justify-between gap-2`}>
             {categoryStats.categories.slice(0, 3).map((category, index) => (
-              <View key={index} style={[styles.topCategoryCard, { borderLeftColor: category.color }]}>
-                <Text style={styles.topCategoryRank}>#{index + 1}</Text>
-                <Text style={styles.topCategoryIcon}>{category.icon}</Text>
-                <Text style={styles.topCategoryName}>{category.name}</Text>
-                <Text style={styles.topCategoryAmount}>₹{category.amount.toFixed(2)}</Text>
+              <View 
+                key={index} 
+                style={[
+                  tailwind`flex-1 p-4 rounded-2xl items-center border-l-4 shadow-sm`, 
+                  { backgroundColor: colors.surface, borderLeftColor: category.color }
+                ]}
+              >
+                <Text style={[tailwind`text-xs font-semibold mb-2`, { color: colors.textSecondary }]}>#{index + 1}</Text>
+                <Text style={tailwind`text-3xl mb-2`}>{category.icon}</Text>
+                <Text style={[tailwind`text-xs font-medium text-center mb-1`, { color: colors.textSecondary }]}>{category.name}</Text>
+                <Text style={[tailwind`text-sm font-bold`, { color: colors.text }]}>₹{category.amount.toFixed(0)}</Text>
                 {category.budget > 0 && (
-                  <Text style={{ fontSize: 10, color: '#999', marginTop: 2 }}>
-                    of ₹{category.budget.toFixed(2)}
+                  <Text style={[tailwind`text-xs mt-1`, { color: colors.textTertiary }]}>
+                    of ₹{category.budget.toFixed(0)}
                   </Text>
                 )}
               </View>
@@ -197,177 +204,4 @@ const Insights = () => {
   )
 }
 
-export default Insights
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  totalCard: {
-    backgroundColor: '#6200ee',
-    margin: 16,
-    padding: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  totalLabel: {
-    color: '#fff',
-    fontSize: 16,
-    opacity: 0.9,
-    marginBottom: 8,
-  },
-  totalAmount: {
-    color: '#fff',
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  totalSubtext: {
-    color: '#fff',
-    fontSize: 14,
-    opacity: 0.8,
-  },
-  section: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  categoryCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  categoryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  categoryIcon: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  categoryName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  categoryCount: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  budgetText: {
-    fontSize: 11,
-    color: '#6200ee',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  categoryRight: {
-    alignItems: 'flex-end',
-  },
-  categoryAmount: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-  },
-  categoryPercentage: {
-    fontSize: 14,
-    color: '#6200ee',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  topCategoriesContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  topCategoryCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  topCategoryRank: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#999',
-    marginBottom: 8,
-  },
-  topCategoryIcon: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
-  topCategoryName: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  topCategoryAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#333',
-  },
-})
+export default Insights;

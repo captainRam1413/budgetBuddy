@@ -1,8 +1,8 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, Platform, ActivityIndicator, View } from 'react-native';
+import { Text, ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Home from '../screens/Home';
 import Create from '../screens/Create';
 import Insights from '../screens/Insights';
@@ -10,74 +10,58 @@ import Profile from '../screens/Profile';
 import Login from '../screens/Login';
 import Register from '../screens/Register';
 import Onboarding from '../screens/Onboarding';
+import Category from '../screens/Category';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
-import { authAPI } from '../services/appwriteAPI';
+import { authAPI } from '../services/api';
+import { SCREENS } from '../constant';
 
-const Tab = createBottomTabNavigator();
+const Tab = createMaterialTopTabNavigator();
 const Stack = createNativeStackNavigator();
 
 function MyTabs() {
-    const { colors, isDarkMode } = useTheme();
+    const { colors } = useTheme();
     const insets = useSafeAreaInsets();
-    
+
     return (
-        <Tab.Navigator 
+        <Tab.Navigator
             screenOptions={{
-                headerShown: false,
-                tabBarStyle: {
-                    backgroundColor: colors.surface,
-                    borderTopColor: colors.border,
-                    borderTopWidth: 1,
-                    height: 60 + insets.bottom,
-                    paddingBottom: insets.bottom,
-                    paddingTop: 8,
-                    elevation: 8,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: -2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 8,
-                },
-                tabBarActiveTintColor: colors.primary,
-                tabBarInactiveTintColor: colors.textSecondary,
-                tabBarLabelStyle: {
-                    fontSize: 12,
-                    fontWeight: '600',
-                },
+                swipeEnabled: true,
+                animationEnabled: true,
             }}
         >
-            <Tab.Screen 
-                name="Home" 
+            <Tab.Screen
+                name={SCREENS.HOME}
                 component={Home}
                 options={{
-                    tabBarIcon: ({ focused, color }) => (
+                    tabBarIcon: ({ focused }) => (
                         <Text style={{ fontSize: 24 }}>{focused ? '🏠' : '🏡'}</Text>
                     ),
                 }}
             />
-            <Tab.Screen 
-                name="Create" 
+            <Tab.Screen
+                name={SCREENS.CREATE}
                 component={Create}
                 options={{
-                    tabBarIcon: ({ focused, color }) => (
+                    tabBarIcon: ({ focused }) => (
                         <Text style={{ fontSize: 24 }}>{focused ? '➕' : '＋'}</Text>
                     ),
                 }}
             />
-            <Tab.Screen 
-                name="Insights" 
+            <Tab.Screen
+                name={SCREENS.INSIGHTS}
                 component={Insights}
                 options={{
-                    tabBarIcon: ({ focused, color }) => (
+                    tabBarIcon: ({ focused }) => (
                         <Text style={{ fontSize: 24 }}>{focused ? '📊' : '📈'}</Text>
                     ),
                 }}
             />
-            <Tab.Screen 
-                name="Profile" 
+            <Tab.Screen
+                name={SCREENS.PROFILE}
                 component={Profile}
                 options={{
-                    tabBarIcon: ({ focused, color }) => (
+                    tabBarIcon: ({ focused }) => (
                         <Text style={{ fontSize: 24 }}>{focused ? '👤' : '👥'}</Text>
                     ),
                 }}
@@ -86,33 +70,58 @@ function MyTabs() {
     );
 }
 
-export default function AppNavigator(params) {
+export default function AppNavigator() {
     const { colors } = useTheme();
-    const { loadUserData } = useExpense();
+    const { loadUserData, hasCompletedOnboarding } = useExpense();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [hasLoadedData, setHasLoadedData] = useState(false);
+    const isAuthenticatedRef = useRef(false);
+    const hasLoadedDataRef = useRef(false);
 
-    useEffect(() => {
-        checkAuth();
-    }, []);
-
-    const checkAuth = async () => {
+    const checkAuth = useRef(async () => {
         try {
             const authenticated = await authAPI.isAuthenticated();
             setIsAuthenticated(authenticated);
-            
-            // If authenticated, load user data from backend
+
             if (authenticated) {
-                console.log('🔄 Loading user data from backend...');
                 await loadUserData();
             }
         } catch (error) {
             console.error('Auth check error:', error);
-            setIsAuthenticated(false);
+            if (isAuthenticatedRef.current !== false) {
+                isAuthenticatedRef.current = false;
+                setIsAuthenticated(false);
+            }
+            hasLoadedDataRef.current = false;
+            setHasLoadedData(false);
         } finally {
-            setLoading(false);
+            if (loading) {
+                setLoading(false);
+            }
         }
-    };
+    }).current;
+
+    useEffect(() => {
+        checkAuth();
+
+        // Set up interval to check authentication status periodically
+        const authCheckInterval = setInterval(() => {
+            checkAuth();
+        }, 5000); // Check every 5 seconds for faster response
+
+        // Check auth when app comes to foreground
+        const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active') {
+                checkAuth();
+            }
+        });
+
+        return () => {
+            clearInterval(authCheckInterval);
+            appStateSubscription.remove();
+        };
+    }, []);
 
     if (loading) {
         return (
@@ -122,9 +131,9 @@ export default function AppNavigator(params) {
             </View>
         );
     }
-    
+
     return (
-        <Stack.Navigator 
+        <Stack.Navigator
             screenOptions={{
                 headerStyle: {
                     backgroundColor: colors.surface,
@@ -137,40 +146,38 @@ export default function AppNavigator(params) {
             }}
         >
             {!isAuthenticated ? (
-                // Auth Screens
                 <>
-                    <Stack.Screen 
-                        name="Login" 
-                        component={Login} 
-                        options={{ headerShown: false }} 
+                    <Stack.Screen
+                        name={SCREENS.LOGIN}
+                        component={Login}
+                        options={{ headerShown: false }}
                     />
-                    <Stack.Screen 
-                        name="Register" 
-                        component={Register} 
-                        options={{ headerShown: false }} 
+                    <Stack.Screen
+                        name={SCREENS.REGISTER}
+                        component={Register}
+                        options={{ headerShown: false }}
                     />
-                    <Stack.Screen 
-                        name="Onboarding" 
-                        component={Onboarding} 
-                        options={{ headerShown: false }} 
+                    <Stack.Screen
+                        name={SCREENS.ONBOARDING}
+                        component={Onboarding}
+                        options={{ headerShown: false }}
                     />
                 </>
             ) : null}
-            
-            {/* Main App Screens */}
-            <Stack.Screen 
-                name="BottomTabs" 
-                component={MyTabs} 
-                options={{ 
+
+            <Stack.Screen
+                name={SCREENS.BOTTOM_TABS}
+                component={MyTabs}
+                options={{
                     title: 'BudgetBuddy 💰',
-                    headerShown: true 
-                }} 
+                    headerShown: true
+                }}
             />
 
-            <Stack.Screen 
-                name="Category" 
-                component={require('../screens/Category').default} 
-                options={{presentation: 'modal', headerShown: false}} 
+            <Stack.Screen
+                name={SCREENS.CATEGORY}
+                component={Category}
+                options={{ presentation: 'modal', headerShown: false }}
             />
         </Stack.Navigator>
     );

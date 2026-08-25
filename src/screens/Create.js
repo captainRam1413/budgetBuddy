@@ -1,11 +1,13 @@
-import { ScrollView, StyleSheet, Text, View, TextInput, Pressable, Alert, Modal, SafeAreaView, ActivityIndicator, Linking } from 'react-native'
+import { ScrollView, StyleSheet, Text, View, TextInput, Pressable, Alert, Modal, SafeAreaView, ActivityIndicator } from 'react-native'
 import React from 'react'
 import tailwind from 'twrnc'
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
 import QRScanner from '../components/QRScanner'
-import { expenseAPI } from '../services/appwriteAPI'
+import { expenseAPI } from '../services/api'
 import { initiateQrPayment, initiateManualPayment, showPaymentConfirmation } from '../services/paymentService'
+import { SCREENS } from '../constant'
+import { formatCurrency } from '../helper'
 
 const Create = ({navigation, route}) => {
   const [amount, setAmount] = React.useState('');
@@ -16,7 +18,7 @@ const Create = ({navigation, route}) => {
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
   const [showQRScanner, setShowQRScanner] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const { addExpense, expenses, categoryBudgets, userData } = useExpense();
+  const { addExpense, expenses, categoryBudgets } = useExpense();
   const { colors } = useTheme();
  
   React.useEffect(() => {
@@ -180,7 +182,7 @@ const Create = ({navigation, route}) => {
         
         Alert.alert(
           "Success", 
-          title + " - Rs." + amount + " added to " + category.name,
+          `${title} - ${formatCurrency(amount)} added to ${category.name}`,
           [{ text: "OK", onPress: () => {
             setAmount('');
             setTitle('');
@@ -200,7 +202,7 @@ const Create = ({navigation, route}) => {
   };
 
   const handleCategoryInput = () => {
-    navigation.navigate("Category");
+    navigation.navigate(SCREENS.CATEGORY);
   }
 
   return (
@@ -384,6 +386,4 @@ const Create = ({navigation, route}) => {
   )
 }
 
-export default Create
-
-const styles = StyleSheet.create({})
+export default Create;

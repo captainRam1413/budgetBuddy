@@ -1,13 +1,12 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Base URL for the backend API
-const API_BASE_URL = 'http://192.168.1.46:5000/api';
+import CONFIG from '../config';
+import { STORAGE_KEYS } from '../constant';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
+  baseURL: CONFIG.API_BASE_URL,
+  timeout: CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,7 +15,7 @@ const api = axios.create({
 // Add auth token to requests
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('authToken');
+    const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -33,9 +32,8 @@ api.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('userId');
-      // Could trigger logout/navigation here
+      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      await AsyncStorage.removeItem(STORAGE_KEYS.USER_ID);
     }
     return Promise.reject(error);
   }
@@ -53,8 +51,8 @@ export const authAPI = {
         password,
       });
       if (response.data.success) {
-        await AsyncStorage.setItem('authToken', response.data.token);
-        await AsyncStorage.setItem('userId', response.data.userId);
+        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.token);
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, response.data.userId);
       }
       return response.data;
     } catch (error) {
@@ -70,8 +68,8 @@ export const authAPI = {
         password,
       });
       if (response.data.success) {
-        await AsyncStorage.setItem('authToken', response.data.token);
-        await AsyncStorage.setItem('userId', response.data.user.id);
+        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.token);
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, response.data.user.id);
       }
       return response.data;
     } catch (error) {
@@ -81,12 +79,12 @@ export const authAPI = {
   },
 
   logout: async () => {
-    await AsyncStorage.removeItem('authToken');
-    await AsyncStorage.removeItem('userId');
+    await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    await AsyncStorage.removeItem(STORAGE_KEYS.USER_ID);
   },
 
   isAuthenticated: async () => {
-    const token = await AsyncStorage.getItem('authToken');
+    const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     return !!token;
   },
 };

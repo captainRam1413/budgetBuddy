@@ -2,7 +2,8 @@
 import { Pressable, StyleSheet, Text, View, FlatList, TextInput, Modal, ScrollView } from 'react-native'
 import React from 'react'
 import tailwind from 'twrnc'
-import { AVAILABLE_ICONS, AVAILABLE_COLORS } from '../constant'
+import { AVAILABLE_ICONS, AVAILABLE_COLORS, SCREENS } from '../constant'
+import { formatCurrency } from '../helper'
 import { useExpense } from '../context/ExpenseContext'
 import { useTheme } from '../context/ThemeContext'
 
@@ -15,7 +16,7 @@ const Category = ({navigation, route}) => {
     const [selectedColor, setSelectedColor] = React.useState('#FFB347');
 
     const categories = getAllCategories() || [];
-    const fromScreen = route.params?.fromScreen || 'Create'; // Default to Create for backward compatibility
+    const fromScreen = route.params?.fromScreen || SCREENS.CREATE;
 
     const renderItem = ({item}) => {
         const budget = categoryBudgets[item.name] || 0;
@@ -39,10 +40,10 @@ const Category = ({navigation, route}) => {
               <View style={tailwind`mt-1`}>
                 <View style={tailwind`flex-row justify-between mb-1`}>
                   <Text style={[tailwind`text-xs font-semibold`, { color: colors.textSecondary }]}>
-                    ₹{spent.toFixed(0)}
+                    {formatCurrency(spent)}
                   </Text>
                   <Text style={[tailwind`text-xs font-semibold`, { color: colors.textSecondary }]}>
-                    ₹{budget.toFixed(0)}
+                    {formatCurrency(budget)}
                   </Text>
                 </View>
                 <View style={[tailwind`h-1.5 rounded-full overflow-hidden`, { backgroundColor: colors.border }]}>
@@ -57,7 +58,7 @@ const Category = ({navigation, route}) => {
                 <Text style={[tailwind`text-xs mt-1 text-center font-bold`, { 
                   color: remaining < 0 ? '#EF4444' : colors.success 
                 }]}>
-                  {remaining >= 0 ? `₹${remaining.toFixed(0)} left` : `₹${Math.abs(remaining).toFixed(0)} over`}
+                  {remaining >= 0 ? `${formatCurrency(remaining)} left` : `${formatCurrency(Math.abs(remaining))} over`}
                 </Text>
               </View>
             )}
@@ -66,19 +67,19 @@ const Category = ({navigation, route}) => {
     };
 
     const handleSelectedCategory = (item) => {
-        navigation.popTo("BottomTabs",{
+        navigation.popTo(SCREENS.BOTTOM_TABS, {
             screen: fromScreen,
             params: {item}
         });
     }
 
-    const handleAddCategory = () => {
+    const handleAddCategory = async () => {
         if (!newCategoryName.trim()) {
             alert('Please enter a category name');
             return;
         }
 
-        const result = addCustomCategory({
+        const result = await addCustomCategory({
             name: newCategoryName.trim(),
             icon: selectedIcon,
             color: selectedColor
@@ -254,6 +255,4 @@ const Category = ({navigation, route}) => {
     );
 }
 
-export default Category
-
-const styles = StyleSheet.create({})
+export default Category;

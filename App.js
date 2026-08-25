@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, StatusBar } from "react-native";
+import { StatusBar } from "react-native";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { NavigationContainer } from "@react-navigation/native";
 import { ExpenseProvider } from "./src/context/ExpenseContext";
@@ -29,7 +29,7 @@ function AppContent() {
   return (
     <>
       <StatusBar 
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        style={isDarkMode ? 'light' : 'dark'}
         backgroundColor={colors.surface}
         translucent={false}
       />
@@ -49,16 +49,5 @@ export default function App() {
         </ExpenseProvider>
       </ThemeProvider>
     </SafeAreaProvider>
-
-    // <AppNavigator />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

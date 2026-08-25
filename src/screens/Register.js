@@ -2,7 +2,8 @@ import { StyleSheet, Text, View, TextInput, Pressable, SafeAreaView, KeyboardAvo
 import React, { useState } from 'react';
 import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
-import { authAPI } from '../services/appwriteAPI';
+import { authAPI } from '../services/api';
+import { SCREENS } from '../constant';
 
 const Register = ({ navigation }) => {
   const { colors } = useTheme();
@@ -33,12 +34,12 @@ const Register = ({ navigation }) => {
     setLoading(true);
     try {
       const result = await authAPI.register(name.trim(), email.trim(), phone.trim(), password);
-      
+
       if (result.success) {
         Alert.alert('Success', 'Registration successful!', [
           {
             text: 'OK',
-            onPress: () => navigation.replace('Onboarding', {
+            onPress: () => navigation.replace(SCREENS.ONBOARDING, {
               userName: name.trim(),
               userEmail: email.trim(),
               userPhone: phone.trim()
@@ -64,11 +65,11 @@ const Register = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[tailwind`flex-1`, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={tailwind`flex-1`}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={tailwind`px-6 py-8`}
           showsVerticalScrollIndicator={false}
         >
@@ -206,7 +207,7 @@ const Register = ({ navigation }) => {
           {/* Login Link */}
           <View style={tailwind`flex-row justify-center items-center`}>
             <Text style={[tailwind`text-base`, { color: colors.textSecondary }]}>Already have an account? </Text>
-            <Pressable onPress={() => navigation.navigate('Login')}>
+            <Pressable onPress={() => navigation.navigate(SCREENS.LOGIN)}>
               <Text style={[tailwind`text-base font-bold`, { color: colors.primary }]}>Login</Text>
             </Pressable>
           </View>
@@ -217,5 +218,3 @@ const Register = ({ navigation }) => {
 };
 
 export default Register;
-
-const styles = StyleSheet.create({});

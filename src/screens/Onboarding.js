@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import tailwind from 'twrnc';
 import { useTheme } from '../context/ThemeContext';
 import { useExpense } from '../context/ExpenseContext';
-import { AVAILABLE_ICONS, AVAILABLE_COLORS } from '../constant';
-import { userAPI, categoryAPI } from '../services/appwriteAPI';
+import { AVAILABLE_ICONS, AVAILABLE_COLORS, SCREENS } from '../constant';
+import { userAPI, categoryAPI } from '../services/api';
 
 const Onboarding = ({ navigation, route }) => {
   const { colors } = useTheme();
@@ -139,7 +139,7 @@ const Onboarding = ({ navigation, route }) => {
       Alert.alert(
         'Welcome to BudgetBuddy! 🎉',
         'Your budget has been set up successfully',
-        [{ text: 'Get Started', onPress: () => navigation.replace('BottomTabs') }]
+        [{ text: 'Get Started', onPress: () => navigation.replace(SCREENS.BOTTOM_TABS) }]
       );
     } catch (error) {
       console.error('Onboarding error:', error);
@@ -383,5 +383,3 @@ const Onboarding = ({ navigation, route }) => {
 };
 
 export default Onboarding;
-
-const styles = StyleSheet.create({});
